@@ -19,6 +19,7 @@
 - **asio_channel.cpp 주석 정리** : 970줄 → 230줄 (이전 버전 코드 주석 전량 제거)
 - **asio_server.cpp 주석 정리** : 140줄 주석 제거
 - **CMake 빌드 구조 개선** : 테스트 7개 타겟이 game 소스 중복 컴파일 → `lemondory_game` 정적 라이브러리로 통합, CMakeLists.txt 하단 구버전 주석 제거
+- **미사용 코드 제거** : `asio_channel.hpp` 죽은 멤버 6개, `socket_buffer` 클래스 전체, `frame_codec.hpp` 구버전 오버로드 + 주석 블록 제거 (448줄 → 136줄)
 
 ---
 

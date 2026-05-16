@@ -9,12 +9,9 @@
 #include "common/core/packet_buffer.hpp"
 #include "common/core/spin_lock.hpp"
 #include "common/network/socket_channel_base.hpp"
-//#include "message_dispatcher.hpp"
-
-namespace lemondory::network 
+namespace lemondory::network
 {
     class asio_server;
-    class message_dispatcher;
 
     class asio_channel : public socket_channel_base, public std::enable_shared_from_this<asio_channel> 
     {
@@ -48,8 +45,6 @@ namespace lemondory::network
         {
             return static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count());
         }
-        // 누적 버퍼 (멤버): std::vector<char> frame_acc_;  // 이미 있으시면 중복 추가 X
-        //std::size_t parse_frames_();
         void parse_frames_();
 
         asio::ip::tcp::socket socket_;
@@ -67,23 +62,14 @@ namespace lemondory::network
         std::atomic<std::uint64_t> bytes_sent{0}; // 전송된 바이트 수
         std::atomic<std::uint64_t> peak_queued{0}; // 최대 큐 크기 기록
 
-        std::atomic<std::uint64_t> last_recv_ms{0}; // 마지막 수신 시간 (ms)
-        std::atomic<std::uint64_t> last_send_ms{0}; // 마지막 전송 시간 (ms)
-    
-        std::atomic<double> rtt_ms_write{0.0}; // RTT 측정 (쓰기)
-        std::chrono::steady_clock::time_point last_ping_tp{}; // 마지막 PING 시간
+        std::atomic<std::uint64_t> last_recv_ms{0};
+        std::atomic<std::uint64_t> last_send_ms{0};
 
-        
         std::vector<char> read_buffer_;
         std::queue<std::vector<char>> write_queue_;
         core::spin_lock write_lock_;
-        
-        std::chrono::milliseconds flush_interval_{2}; // 쓰기 flush 간격 (2ms)
-        std::size_t max_batch_bytes_{32 * 1024}; // 한번에 보낼 최대 패치 크기 (32KB)
-        bool batching_enabled_{true}; // 배칭 활성화 여부
-        
-        std::vector<char> batch_buffer_; // 배칭용 버퍼
-        bool make_batch_(std::vector<char>& out, std::size_t& out_msgs); // 배칭 생성
+
+        bool make_batch_(std::vector<char>& out, std::size_t& out_msgs);
         
         // 프레임 누적 버퍼 + 읽기 오프셋 (erase 없이 O(1) 소비)
         std::vector<char> frame_acc_;

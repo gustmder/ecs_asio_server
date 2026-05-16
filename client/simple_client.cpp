@@ -25,6 +25,7 @@ static void send_frame(tcp::socket& sock, std::uint16_t cmd, const std::string& 
 static void recv_loop(tcp::socket& sock, std::atomic<bool>& running) {
     std::vector<char> acc;
     acc.reserve(64 * 1024);
+    std::size_t acc_offset = 0;
     char buf[4096];
 
     while (running) {
@@ -37,10 +38,17 @@ static void recv_loop(tcp::socket& sock, std::atomic<bool>& running) {
         for (;;) {
             header_v1 hdr{};
             std::string_view payload;
-            if (!try_parse_one(acc, hdr, payload)) break;
+            bool crc_ok = false;
+            if (!try_parse_one(acc, acc_offset, hdr, payload, crc_ok)) break;
+            if (!crc_ok) continue;
 
             std::cout << "[recv] cmd=" << hdr.cmd
                       << " payload=\"" << std::string(payload) << "\"\n";
+        }
+
+        if (acc_offset > acc.size() / 2) {
+            acc.erase(acc.begin(), acc.begin() + static_cast<std::ptrdiff_t>(acc_offset));
+            acc_offset = 0;
         }
     }
 }

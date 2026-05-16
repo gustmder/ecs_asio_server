@@ -29,7 +29,6 @@ add_library(lemondory_core
 )
 
 add_library(lemondory_network
-  common/network/socket_buffer.cpp
   common/network/socket_channel_base.cpp
   server/network/asio_channel.cpp
   server/network/asio_server.cpp
