@@ -1,8 +1,8 @@
 // asio_server.cpp
 #include "asio_server.hpp"
 #include "asio_channel.hpp"
-#include "socket_channel_base.hpp"
-#include "socket_platform.hpp"
+#include "common/network/socket_channel_base.hpp"
+#include "common/network/socket_platform.hpp"
 #include <iostream>
 
 namespace lemondory::network {

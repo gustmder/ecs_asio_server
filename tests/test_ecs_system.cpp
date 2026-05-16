@@ -1,7 +1,7 @@
-#include "game/game_service.hpp"
-#include "game/components/transform.hpp"
-#include "game/components/game_object.hpp"
-#include "game/components/health.hpp"
+#include "server/game/game_service.hpp"
+#include "server/game/components/transform.hpp"
+#include "server/game/components/game_object.hpp"
+#include "server/game/components/health.hpp"
 // #include "common/log.hpp"  // spdlog 문제로 임시 비활성화
 #include <iostream>
 #include <thread>

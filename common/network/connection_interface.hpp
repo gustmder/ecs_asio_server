@@ -1,11 +1,11 @@
 // connection_interface.hpp
 #pragma once
 
-#include "socket_option.hpp"
-#include "net_handler.hpp"
+#include "common/network/socket_option.hpp"
+#include "common/network/net_handler.hpp"
 #include "close_function.hpp"
-#include "../core/net_state.hpp"
-#include "../core/data_option.hpp"
+#include "common/core/net_state.hpp"
+#include "common/core/data_option.hpp"
 
 namespace lemondory::network {
 

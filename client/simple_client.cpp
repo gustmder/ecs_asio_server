@@ -4,7 +4,7 @@
 //
 // 흐름: 접속 → LOGIN → MOVE → CHAT → PING/PONG 수신 대기
 
-#include "network/frame_codec.hpp"
+#include "common/network/frame_codec.hpp"
 #include <asio.hpp>
 #include <iostream>
 #include <string>

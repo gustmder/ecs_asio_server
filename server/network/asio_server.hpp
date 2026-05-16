@@ -5,11 +5,11 @@
 #include <memory>
 #include <mutex>
 
-#include "socket_channel_base.hpp"
-#include "net_handler.hpp"
-#include "../core/data_option.hpp"
-#include "../core/thread_group.hpp"
-#include "socket_option.hpp"
+#include "common/network/socket_channel_base.hpp"
+#include "common/network/net_handler.hpp"
+#include "common/core/data_option.hpp"
+#include "server/core/thread_group.hpp"
+#include "common/network/socket_option.hpp"
 
 namespace lemondory::network {
 

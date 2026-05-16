@@ -4,13 +4,13 @@
 #include <memory>
 #include <vector>
 
-#include "../network/net_handler.hpp"
-#include "../network/socket_channel_base.hpp"
-#include "../network/asio_server.hpp"
-#include "../network/close_function.hpp"
-#include "../network/frame_codec.hpp"
-#include "../network/message_dispatcher.hpp"
-#include "../network/message_ids.hpp"
+#include "common/network/net_handler.hpp"
+#include "common/network/socket_channel_base.hpp"
+#include "server/network/asio_server.hpp"
+#include "common/network/close_function.hpp"
+#include "common/network/frame_codec.hpp"
+#include "common/network/message_dispatcher.hpp"
+#include "common/network/message_ids.hpp"
 #include "game_service.hpp"
 #include "components/transform.hpp"
 #include "components/game_object.hpp"

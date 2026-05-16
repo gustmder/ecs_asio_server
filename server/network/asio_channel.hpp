@@ -5,10 +5,10 @@
 #include <memory>
 #include <atomic>
 #include <chrono>
-#include "frame_codec.hpp"
-#include "../core/packet_buffer.hpp"
-#include "../core/spin_lock.hpp"
-#include "socket_channel_base.hpp"
+#include "common/network/frame_codec.hpp"
+#include "common/core/packet_buffer.hpp"
+#include "common/core/spin_lock.hpp"
+#include "common/network/socket_channel_base.hpp"
 //#include "message_dispatcher.hpp"
 
 namespace lemondory::network 

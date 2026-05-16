@@ -1,9 +1,9 @@
 // socket_channel_base.hpp
 #pragma once
 
-#include "net_handler.hpp"
-#include "../core/net_state.hpp"
-#include "../core/data_option.hpp"
+#include "common/network/net_handler.hpp"
+#include "common/core/net_state.hpp"
+#include "common/core/data_option.hpp"
 
 #include <cstdint>
 #include <functional>

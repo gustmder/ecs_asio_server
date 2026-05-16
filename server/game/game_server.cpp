@@ -1,7 +1,7 @@
 #include "game_server.hpp"
 // #include "managers/object_manager.hpp"  // ECS로 대체
 // #include "managers/map_manager.hpp"     // ECS로 대체
-#include "../common/log.hpp"
+#include "common/log.hpp"
 #include <iostream>
 #include <cstring>  // strlen을 위해 추가
 

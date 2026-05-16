@@ -2,7 +2,7 @@
 #include "../game_service.hpp"
 #include "../components/health.hpp"
 #include "../components/game_object.hpp"
-#include "../../common/log.hpp"
+#include "common/log.hpp"
 #include <iostream>
 
 namespace lemondory::game {

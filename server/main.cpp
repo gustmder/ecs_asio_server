@@ -1,8 +1,8 @@
 //#pragma once
 #include <cstdint>
 #include <iostream>
-#include "../game/game_server.hpp"
-#include "../common/log.hpp"
+#include "server/game/game_server.hpp"
+#include "common/log.hpp"
 
 using namespace lemondory::core;
 using namespace lemondory::network;

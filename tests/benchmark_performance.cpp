@@ -5,9 +5,9 @@
 #include <thread>
 #include <atomic>
 #include <asio.hpp>
-#include "../core/packet_buffer.hpp"
-#include "../network/asio_server.hpp"
-#include "../network/socket_option.hpp"
+#include "common/core/packet_buffer.hpp"
+#include "server/network/asio_server.hpp"
+#include "common/network/socket_option.hpp"
 
 using namespace lemondory::core;
 using namespace lemondory::network;

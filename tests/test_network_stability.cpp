@@ -6,10 +6,10 @@
 #include <atomic>
 #include <memory>
 #include <asio.hpp>
-#include "../network/asio_server.hpp"
-#include "../network/asio_channel.hpp"
-#include "../network/socket_option.hpp"
-#include "../game/game_server.hpp"
+#include "server/network/asio_server.hpp"
+#include "server/network/asio_channel.hpp"
+#include "common/network/socket_option.hpp"
+#include "server/game/game_server.hpp"
 
 using namespace lemondory::network;
 using namespace lemondory::game;

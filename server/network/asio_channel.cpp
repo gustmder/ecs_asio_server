@@ -1,8 +1,8 @@
 // asio_channel.cpp
 #include "asio_channel.hpp"
 #include "asio_server.hpp"
-#include "net_handler.hpp"
-#include "frame_codec.hpp"
+#include "common/network/net_handler.hpp"
+#include "common/network/frame_codec.hpp"
 #include <iostream>
 
 namespace lemondory::network

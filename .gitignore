@@ -35,8 +35,8 @@ benchmark_performance
 # Private docs — local only, not for public repo
 docs/private/
 
-# Third-party libraries (asio, spdlog) — manage as git submodules separately
-# third_party/  ← submodule 등록 후 이 줄 제거
+# Third-party libraries — 직접 포함, submodule 아님
+third_party/
 
 # Portfolio / private materials
 portfolio_code/

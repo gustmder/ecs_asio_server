@@ -5,9 +5,9 @@
 #include <atomic>
 #include <random>
 #include <string>
-#include "../game/threading/main_thread_manager.hpp"
-#include "../game/threading/map_thread_manager.hpp"
-#include "../game/threading/map_thread.hpp"
+#include "server/game/threading/main_thread_manager.hpp"
+#include "server/game/threading/map_thread_manager.hpp"
+#include "server/game/threading/map_thread.hpp"
 
 using namespace lemondory::game;
 
