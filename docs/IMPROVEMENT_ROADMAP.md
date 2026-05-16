@@ -18,6 +18,7 @@
 ### 코드 품질
 - **asio_channel.cpp 주석 정리** : 970줄 → 230줄 (이전 버전 코드 주석 전량 제거)
 - **asio_server.cpp 주석 정리** : 140줄 주석 제거
+- **CMake 빌드 구조 개선** : 테스트 7개 타겟이 game 소스 중복 컴파일 → `lemondory_game` 정적 라이브러리로 통합, CMakeLists.txt 하단 구버전 주석 제거
 
 ---
 
@@ -36,7 +37,6 @@
 |------|------|
 | 공간 인덱스 | get_entities_in_range() 현재 선언만 존재, Grid 또는 Quadtree 필요 |
 | ComponentStore 이터레이션 안전성 | begin/end 락 없이 노출, snapshot copy 방식으로 개선 |
-| 테스트 CMake 정리 | 7개 테스트 타겟이 game 소스 중복 컴파일 → lemondory_game 라이브러리화 |
 
 ---
 

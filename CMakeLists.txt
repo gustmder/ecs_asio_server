@@ -45,27 +45,30 @@ add_library(lemondory_network
 # 필요 상수 정의
 target_compile_definitions(lemondory_network PRIVATE ASIO_STANDALONE)
 
-# 실행 파일 (엔트리)
-add_executable(game_server
-  game/main.cpp
-  game/game_server.cpp
+# 게임 로직 라이브러리 (ECS + 시스템 + 스레딩)
+add_library(lemondory_game
+  game/entity.cpp
+  game/component.cpp
+  game/system.cpp
+  game/game_service.cpp
   game/player.cpp
-    game/entity.cpp
-    game/component.cpp
-    game/system.cpp
-    game/game_service.cpp
-    game/systems/movement_system.cpp
-    game/systems/ai_system.cpp
-    game/systems/combat_system.cpp
-    game/systems/map_system.cpp
-    game/threading/main_thread_manager.cpp
-    game/threading/map_thread_manager.cpp
-    game/threading/map_thread.cpp
+  game/game_server.cpp
+  game/systems/movement_system.cpp
+  game/systems/ai_system.cpp
+  game/systems/combat_system.cpp
+  game/systems/map_system.cpp
+  game/threading/main_thread_manager.cpp
+  game/threading/map_thread_manager.cpp
+  game/threading/map_thread.cpp
 )
 
-target_link_libraries(game_server
-  PRIVATE lemondory_core lemondory_network
+target_link_libraries(lemondory_game
+  PUBLIC lemondory_core lemondory_network
 )
+
+# 서버 실행 파일
+add_executable(game_server game/main.cpp)
+target_link_libraries(game_server PRIVATE lemondory_game)
 
 # 데모 클라이언트
 add_executable(simple_client simple_client.cpp)
@@ -83,22 +86,10 @@ target_link_libraries(test_packet_buffer
 
 add_executable(test_network_stability
   tests/test_network_stability.cpp
-  game/game_server.cpp
-  game/entity.cpp
-  game/component.cpp
-  game/system.cpp
-  game/game_service.cpp
-  game/systems/movement_system.cpp
-  game/systems/ai_system.cpp
-  game/systems/combat_system.cpp
-  game/systems/map_system.cpp
-  game/threading/main_thread_manager.cpp
-  game/threading/map_thread_manager.cpp
-  game/threading/map_thread.cpp
 )
 
 target_link_libraries(test_network_stability
-  PRIVATE lemondory_core lemondory_network
+  PRIVATE lemondory_game
 )
 
 add_executable(benchmark_performance
@@ -120,41 +111,19 @@ target_link_libraries(debug_test
 # ECS 기반 테스트
 add_executable(test_ecs_system
   test_ecs_system.cpp
-    game/entity.cpp
-    game/component.cpp
-    game/system.cpp
-    game/game_service.cpp
-  game/systems/movement_system.cpp
-  game/systems/ai_system.cpp
-  game/systems/combat_system.cpp
-  game/systems/map_system.cpp
-  game/threading/main_thread_manager.cpp
-  game/threading/map_thread_manager.cpp
-  game/threading/map_thread.cpp
 )
 
 target_link_libraries(test_ecs_system
-  PRIVATE lemondory_core
+  PRIVATE lemondory_game
 )
 
 # 스레딩 시스템 테스트
 add_executable(test_threading_system
   tests/test_threading_system.cpp
-  game/entity.cpp
-  game/component.cpp
-  game/system.cpp
-  game/game_service.cpp
-  game/systems/movement_system.cpp
-  game/systems/ai_system.cpp
-  game/systems/combat_system.cpp
-  game/systems/map_system.cpp
-  game/threading/main_thread_manager.cpp
-  game/threading/map_thread_manager.cpp
-  game/threading/map_thread.cpp
 )
 
 target_link_libraries(test_threading_system
-  PRIVATE lemondory_core
+  PRIVATE lemondory_game
 )
 
 # 간단한 스레딩 테스트
@@ -169,21 +138,10 @@ target_link_libraries(simple_threading_test
 # 고급 스레딩 테스트
 add_executable(advanced_threading_test
   tests/advanced_threading_test.cpp
-  game/entity.cpp
-  game/component.cpp
-  game/system.cpp
-  game/game_service.cpp
-  game/systems/movement_system.cpp
-  game/systems/ai_system.cpp
-  game/systems/combat_system.cpp
-  game/systems/map_system.cpp
-  game/threading/main_thread_manager.cpp
-  game/threading/map_thread_manager.cpp
-  game/threading/map_thread.cpp
 )
 
 target_link_libraries(advanced_threading_test
-  PRIVATE lemondory_core
+  PRIVATE lemondory_game
 )
 
 # 통합 테스트
@@ -200,31 +158,3 @@ target_link_libraries(integration_test
 enable_testing()
 add_test(NAME packet_buffer_test COMMAND test_packet_buffer)
 add_test(NAME network_stability_test COMMAND test_network_stability)
-
-# cmake_minimum_required(VERSION 3.16)
-# project(lemondory_network)
-
-# set(CMAKE_CXX_STANDARD 20)
-# set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
-# # Output directories
-# set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
-
-# # Include directories
-# include_directories(
-#     ${PROJECT_SOURCE_DIR}/../asio/include
-#     ${PROJECT_SOURCE_DIR}/core
-#     ${PROJECT_SOURCE_DIR}/network
-#     ${PROJECT_SOURCE_DIR}/game
-# )
-
-# # Add source files
-# file(GLOB_RECURSE CORE_SRC ${PROJECT_SOURCE_DIR}/core/*.cpp)
-# file(GLOB_RECURSE NETWORK_SRC ${PROJECT_SOURCE_DIR}/network/*.cpp)
-# file(GLOB_RECURSE GAME_SRC ${PROJECT_SOURCE_DIR}/game/*.cpp)
-
-# add_executable(lemondory_network
-#     ${CORE_SRC}
-#     ${NETWORK_SRC}
-#     ${GAME_SRC}
-# )
