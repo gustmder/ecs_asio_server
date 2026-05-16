@@ -93,6 +93,46 @@ namespace lemondory::network::frame_codec
         return out;
     }
 
+    // 오프셋 기반 파서 — erase 없이 읽기 위치만 전진 (O(1))
+    // acc_offset: 현재 읽기 위치, 파싱 성공 시 소비한 만큼 전진
+    // crc_ok: payload CRC 일치 여부 (false 시 caller가 drop 처리)
+    inline bool try_parse_one(const std::vector<char>& acc, std::size_t& acc_offset,
+                              header_v1& out_hdr, std::string_view& out_payload,
+                              bool& crc_ok)
+    {
+        const std::size_t avail = acc.size() - acc_offset;
+        if (avail < 4) return false;
+
+        const char* base = acc.data() + acc_offset;
+        const std::uint32_t len_after_len = get_le32(base);
+        if (len_after_len > k_max_frame_bytes) {
+            acc_offset = acc.size(); // desync → skip all
+            return false;
+        }
+
+        const std::size_t total = 4u + static_cast<std::size_t>(len_after_len);
+        if (avail < total) return false;
+        if (len_after_len < k_header_after_len) {
+            acc_offset = acc.size();
+            return false;
+        }
+
+        out_hdr.cmd   = get_le16(base + 4);
+        out_hdr.flags = static_cast<std::uint8_t>(base[6]);
+        out_hdr.ver   = static_cast<std::uint8_t>(base[7]);
+        out_hdr.seq   = get_le32(base + 8);
+        out_hdr.crc   = get_le32(base + 12);
+
+        const char* payload_ptr = base + 16;
+        const std::size_t payload_sz = static_cast<std::size_t>(len_after_len) - k_header_after_len;
+        out_payload = std::string_view(payload_ptr, payload_sz);
+
+        crc_ok = (crc32(payload_ptr, payload_sz) == out_hdr.crc);
+
+        acc_offset += total;
+        return true;
+    }
+
     // parse one frame from accumulator `acc`
     // returns: true if one frame consumed (even if CRC invalid), outputs header & payload view
     inline bool try_parse_one(std::vector<char>& acc, header_v1& out_hdr, std::string_view& out_payload) {

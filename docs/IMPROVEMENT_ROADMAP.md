@@ -10,9 +10,14 @@
 ### 아키텍처 개선
 - **channel_id → Entity O(1) 매핑** : 이동 처리 시 전체 순회(O n) → 해시맵 O(1) 조회
 - **broadcast / broadcast_except** : 이동·채팅 결과를 다른 플레이어에게 전달하는 기반 구현
+- **asio_server 채널 생명주기** : close 콜백으로 channels_ 자동 제거 (tick() 수동 호출 제거)
+- **socket_channel_base 미사용 버퍼 제거** : write/send/read 3개 socket_buffer 제거 (채널당 ~128KB 낭비 제거)
+- **frame_acc\_ O(n) erase → 오프셋 방식** : 읽기 위치만 전진, 절반 소비 시 한 번만 compact
+- **CRC 검증 활성화** : 페이로드 CRC 불일치 프레임 드롭 처리
 
 ### 코드 품질
 - **asio_channel.cpp 주석 정리** : 970줄 → 230줄 (이전 버전 코드 주석 전량 제거)
+- **asio_server.cpp 주석 정리** : 140줄 주석 제거
 
 ---
 
@@ -22,8 +27,6 @@
 
 | 항목 | 현황 | 목표 |
 |------|------|------|
-| frame_acc_ erase 성능 | 앞쪽 erase = O(n) shift | deque 또는 읽기 인덱스로 교체 |
-| CRC 검증 미적용 | crc 계산 후 `(void)c` | 불일치 시 drop 처리 연결 |
 | spdlog 활성화 | std::cout/cerr fallback | CMake 연결 정상화 |
 | 설정 파일 로딩 | config/ 미사용 | 서버 시작 시 json/ini 로드 |
 

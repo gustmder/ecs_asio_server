@@ -25,7 +25,6 @@ public:
     bool listen(const std::string& ip_address, int port);
     bool stop();
     void release();
-    void tick();
 
     void set_net_handler(net_handler* handler);
     net_handler* get_net_handler();

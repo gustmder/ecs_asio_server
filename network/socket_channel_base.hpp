@@ -2,7 +2,6 @@
 #pragma once
 
 #include "net_handler.hpp"
-#include "socket_buffer.hpp"
 #include "../core/net_state.hpp"
 #include "../core/data_option.hpp"
 
@@ -37,14 +36,6 @@ public:
 protected:
     int channel_id_ = -1;
     net_handler* handler_ = nullptr;
-
-    static constexpr int k_buffer_max = 32768;
-    static constexpr int k_send_buffer_max = k_buffer_max * 2;
-    static constexpr int k_increase_size = 10;
-
-    socket_buffer write_buffer_;
-    socket_buffer send_buffer_;
-    socket_buffer read_buffer_;
 
     bool closed_ = false;
     bool closing_ = false;

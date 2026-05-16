@@ -26,6 +26,7 @@ void asio_channel::start()
 
     frame_acc_.clear();
     frame_acc_.reserve(64 * 1024);
+    frame_acc_offset_ = 0;
 
     current_queue_bytes.store(0, std::memory_order_relaxed);
     peak_queued.store(0, std::memory_order_relaxed);
@@ -239,10 +240,26 @@ void asio_channel::parse_frames_()
     for (;;) {
         header_v1 hdr{};
         std::string_view payload;
-        if (!try_parse_one(frame_acc_, hdr, payload)) break;
+        bool crc_ok = false;
+
+        if (!try_parse_one(frame_acc_, frame_acc_offset_, hdr, payload, crc_ok)) break;
+
+        if (!crc_ok) {
+            drops.fetch_add(1, std::memory_order_relaxed);
+            std::cerr << "[channel] CRC mismatch id=" << get_channel_id()
+                      << " cmd=" << hdr.cmd << " — frame dropped\n";
+            continue;
+        }
 
         if (on_frame_)
             on_frame_(this->get_channel_id(), hdr.cmd, payload.data(), payload.size());
+    }
+
+    // 소비된 앞부분이 절반 이상이면 compact
+    if (frame_acc_offset_ > frame_acc_.size() / 2) {
+        frame_acc_.erase(frame_acc_.begin(),
+                         frame_acc_.begin() + static_cast<std::ptrdiff_t>(frame_acc_offset_));
+        frame_acc_offset_ = 0;
     }
 }
 

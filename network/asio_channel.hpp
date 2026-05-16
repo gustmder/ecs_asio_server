@@ -85,8 +85,9 @@ namespace lemondory::network
         std::vector<char> batch_buffer_; // 배칭용 버퍼
         bool make_batch_(std::vector<char>& out, std::size_t& out_msgs); // 배칭 생성
         
-        // 프레임 누적 버퍼
+        // 프레임 누적 버퍼 + 읽기 오프셋 (erase 없이 O(1) 소비)
         std::vector<char> frame_acc_;
+        std::size_t frame_acc_offset_{0};
         
         // 하트 비트 추가 멤버
         asio::steady_timer idle_timer_{ socket_.get_executor() };
