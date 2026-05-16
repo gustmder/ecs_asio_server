@@ -1,0 +1,163 @@
+#pragma once
+
+#include "../game_service.hpp"
+#include "../components/map.hpp"
+#include "../components/transform.hpp"
+#include "../components/game_object.hpp"
+#include <queue>
+#include <mutex>
+#include <condition_variable>
+#include <thread>
+#include <atomic>
+#include <unordered_set>
+#include <string>
+
+namespace lemondory::game {
+
+// 맵 스레드에서 처리할 패킷
+struct MapPacket {
+    int channel_id;
+    std::uint16_t cmd;
+    std::string data;
+    std::chrono::steady_clock::time_point timestamp;
+    
+    MapPacket(int ch_id, std::uint16_t c, const char* d, std::size_t size)
+        : channel_id(ch_id), cmd(c), data(d, size), 
+          timestamp(std::chrono::steady_clock::now()) {}
+};
+
+// 맵 스레드에서 처리할 작업
+struct MapTask {
+    std::function<void()> task;
+    int priority = 0;
+    
+    MapTask(std::function<void()> t, int p = 0) 
+        : task(std::move(t)), priority(p) {}
+    
+    bool operator<(const MapTask& other) const {
+        return priority > other.priority;
+    }
+};
+
+class MapThread {
+public:
+    MapThread(int map_id, const std::string& map_name, 
+              float width, float height, int max_players);
+    ~MapThread();
+    
+    // 스레드 시작/종료
+    void start();
+    void stop();
+    void join();
+    
+    // 패킷 처리
+    void add_packet(int channel_id, std::uint16_t cmd, 
+                   const char* data, std::size_t size);
+    void process_packets();
+    
+    // 작업 처리
+    void add_task(std::function<void()> task, int priority = 0);
+    void process_tasks();
+    
+    // 플레이어 관리
+    void add_player(int channel_id, Entity player_entity);
+    void remove_player(int channel_id);
+    void update_player(int channel_id, const std::string& data);
+    
+    // 맵 업데이트
+    void update_map(float delta_time);
+    void update_players(float delta_time);
+    void update_monsters(float delta_time);
+    void update_npcs(float delta_time);
+    void update_items(float delta_time);
+    
+    // 맵 이벤트 처리
+    void handle_spawn_events(float delta_time);
+    void handle_combat_events(float delta_time);
+    void handle_interaction_events(float delta_time);
+    
+    // 상태 조회
+    bool is_running() const { return running_; }
+    int get_map_id() const { return map_id_; }
+    int get_player_count() const { return player_count_.load(); }
+    int get_monster_count() const { return monster_count_.load(); }
+    int get_npc_count() const { return npc_count_.load(); }
+    int get_item_count() const { return item_count_.load(); }
+    int get_total_object_count() const { 
+        return player_count_.load() + monster_count_.load() + 
+               npc_count_.load() + item_count_.load(); 
+    }
+    
+    // 맵 정보
+    Entity get_map_entity() const { return map_entity_; }
+    const std::string& get_map_name() const { return map_name_; }
+    
+private:
+    void thread_loop();
+    void process_single_packet(const MapPacket& packet);
+    void handle_movement_packet(int channel_id, const std::string& data);
+    void handle_combat_packet(int channel_id, const std::string& data);
+    void handle_interaction_packet(int channel_id, const std::string& data);
+    void handle_chat_packet(int channel_id, const std::string& data);
+    
+    // 맵 정보
+    int map_id_;
+    std::string map_name_;
+    Entity map_entity_;
+    float width_, height_;
+    int max_players_;
+    
+    // 스레드 상태
+    std::atomic<bool> running_{false};
+    std::thread thread_;
+    
+    // 패킷 큐
+    std::queue<MapPacket> packet_queue_;
+    std::mutex packet_mutex_;
+    std::condition_variable packet_cv_;
+    
+    // 작업 큐
+    std::priority_queue<MapTask> task_queue_;
+    std::mutex task_mutex_;
+    std::condition_variable task_cv_;
+    
+    // 맵 내 오브젝트들
+    std::unordered_set<int> local_players_;      // channel_id
+    std::unordered_set<Entity> local_monsters_;  // monster entities
+    std::unordered_set<Entity> local_npcs_;      // npc entities
+    std::unordered_set<Entity> local_items_;     // item entities
+    
+    // 오브젝트 관리 뮤텍스
+    mutable std::mutex objects_mutex_;
+    
+    // 성능을 위한 atomic 카운터들
+    std::atomic<int> player_count_{0};
+    std::atomic<int> monster_count_{0};
+    std::atomic<int> npc_count_{0};
+    std::atomic<int> item_count_{0};
+    
+    // ECS 서비스 참조
+    GameService& game_service_;
+    
+    // 맵 컴포넌트 참조
+    MapComponent* map_component_;
+    MapObjectsComponent* map_objects_component_;
+    MapBoundsComponent* map_bounds_component_;
+    
+    // 맵 내 오브젝트 업데이트 헬퍼
+    void update_object_position(Entity entity, float delta_time);
+    void update_object_ai(Entity entity, float delta_time);
+    void check_object_collisions(Entity entity);
+    void handle_object_interactions(Entity entity);
+    
+    // 맵 경계 검사
+    bool is_object_in_bounds(Entity entity);
+    void clamp_object_to_bounds(Entity entity);
+    
+    // 맵 이벤트 처리 헬퍼
+    void spawn_monsters(float delta_time);
+    void spawn_items(float delta_time);
+    void handle_map_events(float delta_time);
+};
+
+} // namespace lemondory::game

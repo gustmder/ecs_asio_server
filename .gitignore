@@ -1,0 +1,43 @@
+# Build
+build/
+cmake-build-*/
+*.cmake
+CMakeCache.txt
+CMakeFiles/
+Makefile
+
+# Binaries (built executables, no extension on macOS/Linux)
+game_server
+debug_test
+simple_client
+game_client
+test_packet_buffer
+test_network_stability
+test_threading_system
+test_ecs_system
+simple_threading_test
+advanced_threading_test
+integration_test
+benchmark_performance
+*.dSYM/
+
+# macOS
+.DS_Store
+.AppleDouble
+
+# IDE
+.vscode/
+.idea/
+*.xcodeproj/
+*.suo
+*.user
+
+# Private docs — local only, not for public repo
+docs/private/
+
+# Third-party libraries (asio, spdlog) — manage as git submodules separately
+# third_party/  ← submodule 등록 후 이 줄 제거
+
+# Portfolio / private materials
+portfolio_code/
+*.zip
