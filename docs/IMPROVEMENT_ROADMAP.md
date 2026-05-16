@@ -1,0 +1,63 @@
+# Improvement Roadmap
+
+## 완료된 개선 사항
+
+### 버그 수정
+- **ComponentManager 메모리 누수** : `void*` raw 포인터 → `unique_ptr<IComponentStore>` 교체
+- **listen() 이중 호출** : `game_server::init()`에서 중복 listen 제거
+- **has_component 이중 락** : stores_mutex_ 보유 중 get_store() 재진입 제거
+
+### 아키텍처 개선
+- **channel_id → Entity O(1) 매핑** : 이동 처리 시 전체 순회(O n) → 해시맵 O(1) 조회
+- **broadcast / broadcast_except** : 이동·채팅 결과를 다른 플레이어에게 전달하는 기반 구현
+
+### 코드 품질
+- **asio_channel.cpp 주석 정리** : 970줄 → 230줄 (이전 버전 코드 주석 전량 제거)
+
+---
+
+## 다음 단계: 아키텍처 개선
+
+### 우선순위 높음
+
+| 항목 | 현황 | 목표 |
+|------|------|------|
+| frame_acc_ erase 성능 | 앞쪽 erase = O(n) shift | deque 또는 읽기 인덱스로 교체 |
+| CRC 검증 미적용 | crc 계산 후 `(void)c` | 불일치 시 drop 처리 연결 |
+| spdlog 활성화 | std::cout/cerr fallback | CMake 연결 정상화 |
+| 설정 파일 로딩 | config/ 미사용 | 서버 시작 시 json/ini 로드 |
+
+### 우선순위 중간
+
+| 항목 | 설명 |
+|------|------|
+| 공간 인덱스 | get_entities_in_range() 현재 선언만 존재, Grid 또는 Quadtree 필요 |
+| ComponentStore 이터레이션 안전성 | begin/end 락 없이 노출, snapshot copy 방식으로 개선 |
+| 테스트 CMake 정리 | 7개 테스트 타겟이 game 소스 중복 컴파일 → lemondory_game 라이브러리화 |
+
+---
+
+## 다음 단계: 기능 구현
+
+### DB 레이어 (미구현)
+- 플레이어 데이터 저장/로드 (MySQL 또는 Redis)
+- 로그인 인증 (세션 토큰)
+- 인벤토리/아이템 영속화
+
+### 게임 로직 (스텁 상태)
+- 공격 로직: 타겟 검증, 데미지 계산, 결과 브로드캐스트
+- 몬스터/NPC 스폰: MapThread 내 핸들러 구현
+- 맵 이동(존 이동): 채널을 다른 MapThread로 재배정
+
+### 인프라
+- SSL/TLS 지원
+- graceful shutdown (pending write flush 후 종료)
+- Rate limiting (패킷 빈도 제한)
+
+---
+
+## 알려진 제약 / 의도적 미구현
+
+- **길드 시스템** : `protocol_guild.hpp` 정의 완료, 핸들러 미등록 (DB 이후 구현 예정)
+- **인벤토리** : 프로토콜 미정의
+- **전투 결과 검증** : 서버-권위 구조 미적용 (클라이언트 신뢰 방식)
