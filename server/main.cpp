@@ -20,8 +20,7 @@ static int _ignore_sigpipe = [](){ ::signal(SIGPIPE, SIG_IGN); return 0; }();
 #endif
 
 int main() {
-    // 로깅 시스템 초기화
-    log::init();
+    log_init();
     
     LOGI("Starting Game Server...");
 
