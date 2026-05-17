@@ -51,18 +51,32 @@ public:
         std::lock_guard<std::mutex> lock(mutex_);
         return components_.count(entity);
     }
-    
-    // 반복자 지원
-    auto begin() { return components_.begin(); }
-    auto end() { return components_.end(); }
-    auto begin() const { return components_.begin(); }
-    auto end() const { return components_.end(); }
-    
-    // 통계
-    size_t size() const { return components_.size(); }
-    bool empty() const { return components_.empty(); }
-    
-public:
+
+    // 락을 유지한 채 복사본 반환 — 시스템 이터레이션에 사용
+    std::vector<std::pair<Entity, T*>> snapshot() {
+        std::lock_guard<std::mutex> lock(mutex_);
+        std::vector<std::pair<Entity, T*>> out;
+        out.reserve(components_.size());
+        for (auto& [e, c] : components_)
+            out.emplace_back(e, c.get());
+        return out;
+    }
+
+    std::vector<Entity> snapshot_entities() {
+        std::lock_guard<std::mutex> lock(mutex_);
+        std::vector<Entity> out;
+        out.reserve(components_.size());
+        for (auto& [e, _] : components_)
+            out.push_back(e);
+        return out;
+    }
+
+    size_t size() const {
+        std::lock_guard<std::mutex> lock(mutex_);
+        return components_.size();
+    }
+
+private:
     std::unordered_map<Entity, std::unique_ptr<T>> components_;
     mutable std::mutex mutex_;
 };
@@ -120,27 +134,14 @@ public:
         return static_cast<const ComponentStore<T>*>(it->second.get())->has(entity);
     }
     
-    // 컴포넌트 검색
     template<typename T>
-    std::vector<Entity> get_entities_with_component() const {
-        std::vector<Entity> entities;
-        const auto& store = get_store<T>();
-        std::lock_guard<std::mutex> lock(store.mutex_);
-        for (const auto& [entity, _] : store.components_) {
-            entities.push_back(entity);
-        }
-        return entities;
+    std::vector<Entity> get_entities_with_component() {
+        return get_store<T>().snapshot_entities();
     }
 
     template<typename T>
     std::vector<std::pair<Entity, T*>> get_components() {
-        std::vector<std::pair<Entity, T*>> result;
-        auto& store = get_store<T>();
-        std::lock_guard<std::mutex> lock(store.mutex_);
-        for (auto& [entity, component] : store.components_) {
-            result.push_back({entity, component.get()});
-        }
-        return result;
+        return get_store<T>().snapshot();
     }
     
     // 엔티티 삭제 시 모든 컴포넌트 제거

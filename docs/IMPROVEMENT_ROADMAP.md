@@ -37,7 +37,7 @@
 | 항목 | 설명 |
 |------|------|
 | 공간 인덱스 | get_entities_in_range() 현재 선언만 존재, Grid 또는 Quadtree 필요 |
-| ComponentStore 이터레이션 안전성 | begin/end 락 없이 노출, snapshot copy 방식으로 개선 |
+| ~~ComponentStore 이터레이션 안전성~~ | begin/end 제거, components\_/mutex\_ private화, snapshot() 메서드로 안전한 이터레이션 보장 ✓ |
 
 ---
 
