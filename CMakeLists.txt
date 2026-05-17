@@ -12,14 +12,16 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|AppleClang|GNU")
   add_compile_options(-O0 -g -fno-omit-frame-pointer -fno-inline)
 endif()
 
-set(ASIO_INCLUDE   "${CMAKE_SOURCE_DIR}/third_party/asio/asio/include")
-set(SPDLOG_INCLUDE "${CMAKE_SOURCE_DIR}/third_party/spdlog/include")
+set(ASIO_INCLUDE    "${CMAKE_SOURCE_DIR}/third_party/asio/asio/include")
+set(SPDLOG_INCLUDE  "${CMAKE_SOURCE_DIR}/third_party/spdlog/include")
+set(JSON_INCLUDE    "${CMAKE_SOURCE_DIR}/third_party")
 
 # 프로젝트 루트를 include root 로 사용 — 모든 #include 는 루트 기준 전체 경로
 include_directories(
   ${CMAKE_SOURCE_DIR}
   ${ASIO_INCLUDE}
   ${SPDLOG_INCLUDE}
+  ${JSON_INCLUDE}
 )
 
 # ─── 공통 라이브러리 ─────────────────────────────────────────────────────────

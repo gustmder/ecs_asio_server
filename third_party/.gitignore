@@ -1,0 +1,33 @@
+# 빌드에 필요한 헤더/라이센스만 포함, 나머지 제외
+
+# asio — 헤더와 라이센스 외 제외
+asio/src/
+asio/asio/src/
+asio/.github/
+asio/autogen.sh
+asio/boostify.pl
+asio/tsify.pl
+asio/release.pl
+asio/configure.ac
+asio/Makefile.am
+asio/Makefile.mgw
+asio/Makefile.msc
+asio/asio.pc.in
+asio/asio.manifest
+asio/boost_asio.manifest
+
+# spdlog — 헤더/라이센스/cmake 외 제외
+spdlog/tests/
+spdlog/bench/
+spdlog/example/
+spdlog/logos/
+spdlog/scripts/
+spdlog/src/
+spdlog/cmake/
+spdlog/.github/
+spdlog/.clang-format
+spdlog/.clang-tidy
+spdlog/.git-blame-ignore-revs
+spdlog/.gitattributes
+spdlog/appveyor.yml
+spdlog/CMakeLists.txt

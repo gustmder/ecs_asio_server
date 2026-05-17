@@ -35,8 +35,9 @@ benchmark_performance
 # Private docs — local only, not for public repo
 docs/private/
 
-# Third-party libraries — 직접 포함, submodule 아님
-third_party/
+# Third-party embedded git repos — git이 nested repo로 인식하지 않도록
+third_party/asio/.git
+third_party/spdlog/.git
 
 # Portfolio / private materials
 portfolio_code/
