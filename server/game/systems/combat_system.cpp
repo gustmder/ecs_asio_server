@@ -13,14 +13,14 @@ void CombatSystem::update(float /*delta_time*/) {
     for (Entity entity : entities) {
         auto* health = component_manager().get_component<Health>(entity);
         if (health && health->hp <= 0) {
-            LOGD("Entity " << static_cast<int>(entity) << " died");
+            LOGD("Entity {} died", static_cast<int>(entity));
             // TODO: 사망 처리 로직
         }
     }
 }
 
 void CombatSystem::attack(Entity attacker, Entity target) {
-    LOGD("Entity " << static_cast<int>(attacker) << " attacks Entity " << static_cast<int>(target));
+    LOGD("Entity {} attacks Entity {}", static_cast<int>(attacker), static_cast<int>(target));
     
     // 기본 데미지 계산
     std::uint32_t damage = 10; // TODO: 공격력 기반 계산
@@ -31,7 +31,7 @@ void CombatSystem::take_damage(Entity entity, std::uint32_t damage) {
     auto* health = component_manager().get_component<Health>(entity);
     if (health) {
         health->hp = (health->hp > damage) ? health->hp - damage : 0;
-        LOGD("Entity " << static_cast<int>(entity) << " takes " << damage << " damage. HP: " << health->hp);
+        LOGD("Entity {} takes {} damage. HP: {}", static_cast<int>(entity), damage, health->hp);
     }
 }
 
@@ -39,7 +39,7 @@ void CombatSystem::heal(Entity entity, std::uint32_t amount) {
     auto* health = component_manager().get_component<Health>(entity);
     if (health) {
         health->hp = std::min(health->max_hp, health->hp + amount);
-        LOGD("Entity " << static_cast<int>(entity) << " healed by " << amount << ". HP: " << health->hp);
+        LOGD("Entity {} healed by {}. HP: {}", static_cast<int>(entity), amount, health->hp);
     }
 }
 
