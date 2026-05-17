@@ -1,0 +1,28 @@
+{
+  "server": {
+    "host": "0.0.0.0",
+    "port": 12345,
+    "backlog": 128,
+    "max_connections": 1000,
+    "tcp_no_delay": true,
+    "tick_rate": 60
+  },
+  "logging": {
+    "level": "debug",
+    "file": false,
+    "file_path": "logs/server.log"
+  },
+  "threading": {
+    "io_threads": 1,
+    "map_threads_enabled": true
+  },
+  "game": {
+    "use_ecs": true,
+    "memory_pool_size": 1000
+  },
+  "maps": [
+    { "id": 1, "name": "Forest",  "width": 1000.0, "height": 1000.0, "max_players": 100 },
+    { "id": 2, "name": "Dungeon", "width": 800.0,  "height": 800.0,  "max_players": 50  },
+    { "id": 3, "name": "City",    "width": 1500.0, "height": 1500.0, "max_players": 200 }
+  ]
+}

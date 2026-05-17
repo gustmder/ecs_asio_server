@@ -16,6 +16,7 @@
 #include "components/game_object.hpp"
 #include "components/health.hpp"
 #include "threading/main_thread_manager.hpp"
+#include "server/core/server_config.hpp"
 
 namespace lemondory::game {
 
@@ -23,6 +24,8 @@ class game_server : public lemondory::network::net_handler {
 public:
     game_server() = default;
     ~game_server() override = default;
+
+    void set_config(const lemondory::core::ServerConfig& cfg) { config_ = cfg; }
 
     bool init(asio::io_context& io,
               const lemondory::network::socket_option& opt,
@@ -78,9 +81,11 @@ private:
     // message dispatcher
     lemondory::network::message_dispatcher dispatcher_;
     
-    // ECS 기반 게임 서비스
-    bool use_ecs_system_{true};
-    
+    // 설정
+    lemondory::core::ServerConfig config_;
+
+    // ECS 기반 게임 서비스 (config_.use_ecs로 제어)
+
     // 스레딩 시스템
     std::unique_ptr<MainThreadManager> main_thread_manager_;
     

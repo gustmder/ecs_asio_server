@@ -2,8 +2,7 @@
 // #include "managers/object_manager.hpp"  // ECS로 대체
 // #include "managers/map_manager.hpp"     // ECS로 대체
 #include "common/log.hpp"
-#include <iostream>
-#include <cstring>  // strlen을 위해 추가
+#include <cstring>
 
 namespace lemondory::game {
 using namespace lemondory::network;
@@ -13,7 +12,7 @@ bool game_server::init(asio::io_context& io,
                        const std::string& ip, int port)
 {
     // ECS 시스템 초기화
-    if (use_ecs_system_) {
+    if (config_.use_ecs) {
         if (!game_service().initialize()) {
             LOGE("ECS game service init failed");
             return false;
@@ -102,11 +101,11 @@ void game_server::stop() {
 }
 
 void game_server::on_channel_init(socket_channel_base* channel, bool /*use_plugin*/) {
-    std::cout << "[game_server] channel init id=" << channel->get_channel_id() << "\n";
+    LOGD("channel init id={}", channel->get_channel_id());
 }
 
 void game_server::on_channel_destroy(socket_channel_base* channel) {
-    std::cout << "[game_server] channel destroy id=" << channel->get_channel_id() << "\n";
+    LOGD("channel destroy id={}", channel->get_channel_id());
 }
 
 void game_server::on_accept(int channel_id, socket_channel_base* channel) {
@@ -123,11 +122,11 @@ void game_server::on_accept(int channel_id, socket_channel_base* channel) {
 
     // 스레딩 시스템: 플레이어를 기본 맵에 추가
     if (main_thread_manager_) {
-        update_player_map(channel_id, 1); // 기본 맵: Forest
-        std::cout << "[game_server] Player " << channel_id << " added to map 1 (Forest)" << std::endl;
+        update_player_map(channel_id, 1);
+        LOGD("Player {} added to map 1 (Forest)", channel_id);
     }
 
-    std::cout << "[game_server] accept: channel=" << channel_id << "\n";
+    LOGI("accept: channel={}", channel_id);
 }
 
 void game_server::on_close(int channel_id, const void* /*error*/, close_function reason) {
@@ -139,15 +138,13 @@ void game_server::on_close(int channel_id, const void* /*error*/, close_function
     if (main_thread_manager_) {
         std::lock_guard<std::mutex> map_lock(player_map_mutex_);
         player_map_mapping_.erase(channel_id);
-        std::cout << "[game_server] Player " << channel_id << " removed from map system" << std::endl;
     }
-    
-    std::cout << "[game_server] close: channel=" << channel_id
-              << " reason=" << static_cast<int>(reason) << "\n";
+
+    LOGI("close: channel={} reason={}", channel_id, static_cast<int>(reason));
 }
 
 void game_server::on_tick() {
-    if (use_ecs_system_) {
+    if (config_.use_ecs) {
         // ECS 시스템 업데이트 (60 FPS)
         game_service().update(0.016f);
     }
@@ -207,9 +204,9 @@ void game_server::broadcast_except(int exclude_channel_id, std::uint16_t cmd, co
 // 게임 메시지 핸들러 구현들
 void game_server::handle_login(int channel_id, const char* data, std::size_t size) {
     std::string player_name(data, size);
-    std::cout << "[GAME] Player login: " << player_name << " (channel: " << channel_id << ")\n";
-    
-    if (use_ecs_system_) {
+    LOGI("Player login: {} (channel={})", player_name, channel_id);
+
+    if (config_.use_ecs) {
         Entity player = game_service().create_entity();
 
         game_service().add_component(player, std::make_unique<Position>(0.0f, 0.0f, 0.0f));
@@ -222,7 +219,7 @@ void game_server::handle_login(int channel_id, const char* data, std::size_t siz
             channel_to_entity_[channel_id] = player;
         }
 
-        std::cout << "[GAME] Player created via ECS (Entity: " << player << ")\n";
+        LOGD("Player created via ECS (Entity={})", static_cast<int>(player));
     }
     
     const char* response = "LOGIN_SUCCESS";
@@ -230,8 +227,8 @@ void game_server::handle_login(int channel_id, const char* data, std::size_t siz
 }
 
 void game_server::handle_move(int channel_id, const char* data, std::size_t size) {
-    if (size < 12) { // x, y, z (각 4바이트)
-        std::cout << "[GAME] Invalid move data from channel " << channel_id << "\n";
+    if (size < 12) {
+        LOGW("Invalid move data from channel {}", channel_id);
         return;
     }
     
@@ -246,9 +243,9 @@ void game_server::handle_move(int channel_id, const char* data, std::size_t size
     float y = *reinterpret_cast<const float*>(data + 4);
     float z = *reinterpret_cast<const float*>(data + 8);
     
-    std::cout << "[GAME] Player move: (" << x << ", " << y << ", " << z << ") from channel " << channel_id << "\n";
-    
-    if (use_ecs_system_) {
+    LOGD("Player move: ({}, {}, {}) from channel={}", x, y, z, channel_id);
+
+    if (config_.use_ecs) {
         Entity player_entity = 0;
         {
             std::lock_guard<std::mutex> lk(mtx_);
@@ -261,7 +258,6 @@ void game_server::handle_move(int channel_id, const char* data, std::size_t size
                 position->x = x;
                 position->y = y;
                 position->z = z;
-                std::cout << "[GAME] Player position updated (Entity: " << player_entity << ")\n";
             }
         }
     }
@@ -281,7 +277,7 @@ void game_server::handle_move(int channel_id, const char* data, std::size_t size
 
 void game_server::handle_chat(int channel_id, const char* data, std::size_t size) {
     std::string message(data, size);
-    std::cout << "[GAME] Chat from channel " << channel_id << ": " << message << "\n";
+    LOGI("Chat from channel={}: {}", channel_id, message);
     
     // 스레딩 시스템: 글로벌 채팅은 메인 스레드에서 처리
     if (main_thread_manager_) {
@@ -301,13 +297,13 @@ void game_server::handle_chat(int channel_id, const char* data, std::size_t size
 }
 
 void game_server::handle_attack(int channel_id, const char* data, std::size_t size) {
-    if (size < 4) { // target_id (4바이트)
-        std::cout << "[GAME] Invalid attack data from channel " << channel_id << "\n";
+    if (size < 4) {
+        LOGW("Invalid attack data from channel {}", channel_id);
         return;
     }
-    
+
     int target_id = *reinterpret_cast<const int*>(data);
-    std::cout << "[GAME] Attack from channel " << channel_id << " to target " << target_id << "\n";
+    LOGI("Attack from channel={} to target={}", channel_id, target_id);
     
     // TODO: 실제 공격 로직 구현
     // - 타겟 검증
@@ -320,27 +316,22 @@ void game_server::handle_attack(int channel_id, const char* data, std::size_t si
 
 // 스레딩 시스템 초기화
 void game_server::initialize_threading_system() {
-    std::cout << "[game_server] Initializing threading system..." << std::endl;
-    
-    // 메인 스레드 매니저 생성
     main_thread_manager_ = std::make_unique<MainThreadManager>();
     main_thread_manager_->start();
-    
-    // 기본 맵들 생성
-    main_thread_manager_->create_map_thread(1, "Forest");
-    main_thread_manager_->create_map_thread(2, "Dungeon");
-    main_thread_manager_->create_map_thread(3, "City");
-    
-    std::cout << "[game_server] Threading system initialized with 3 maps" << std::endl;
+
+    for (const auto& m : config_.maps)
+        main_thread_manager_->create_map_thread(m.id, m.name);
+
+    LOGI("Threading system initialized with {} map(s).", config_.maps.size());
 }
 
 // 스레딩 시스템 종료
 void game_server::shutdown_threading_system() {
     if (main_thread_manager_) {
-        std::cout << "[game_server] Shutting down threading system..." << std::endl;
+        LOGI("Shutting down threading system...");
         main_thread_manager_->stop();
         main_thread_manager_.reset();
-        std::cout << "[game_server] Threading system shutdown complete" << std::endl;
+        LOGI("Threading system shutdown complete.");
     }
 }
 

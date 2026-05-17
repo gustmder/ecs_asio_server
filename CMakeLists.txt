@@ -28,6 +28,7 @@ include_directories(
 
 add_library(lemondory_core
   common/core/packet_buffer.cpp
+  server/core/server_config.cpp
 )
 
 add_library(lemondory_network
@@ -56,7 +57,7 @@ add_library(lemondory_game
   server/game/threading/map_thread_manager.cpp
   server/game/threading/map_thread.cpp
 )
-target_link_libraries(lemondory_game PUBLIC lemondory_core lemondory_network)
+target_link_libraries(lemondory_game PUBLIC lemondory_network)
 
 # ─── 실행 파일 ───────────────────────────────────────────────────────────────
 
