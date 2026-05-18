@@ -1,7 +1,8 @@
 #include "game_server.hpp"
-// #include "managers/object_manager.hpp"  // ECS로 대체
-// #include "managers/map_manager.hpp"     // ECS로 대체
 #include "common/log.hpp"
+#include "common/protocol/protocol_combat.hpp"
+#include "common/protocol/protocol_map.hpp"
+#include "common/protocol/protocol_guild.hpp"
 #include <cstring>
 
 namespace lemondory::game {
@@ -80,6 +81,24 @@ bool game_server::init(asio::io_context& io,
     // 1004 = ATTACK
     dispatcher_.bind(1004, [this](int channel_id, const char* data, std::size_t size) {
         handle_attack(channel_id, data, size);
+    });
+
+    // 1005 = MAP_ENTER
+    dispatcher_.bind(1005, [this](int channel_id, const char* data, std::size_t size) {
+        handle_map_enter(channel_id, data, size);
+    });
+
+    // 2001 = GUILD_CREATE
+    dispatcher_.bind(2001, [this](int channel_id, const char* data, std::size_t size) {
+        handle_guild_create(channel_id, data, size);
+    });
+    // 2002 = GUILD_JOIN
+    dispatcher_.bind(2002, [this](int channel_id, const char* data, std::size_t size) {
+        handle_guild_join(channel_id, data, size);
+    });
+    // 2003 = GUILD_LEAVE
+    dispatcher_.bind(2003, [this](int channel_id, const char* data, std::size_t size) {
+        handle_guild_leave(channel_id, data, size);
     });
 
     if (!server_->listen(ip, port)) {
@@ -297,21 +316,205 @@ void game_server::handle_chat(int channel_id, const char* data, std::size_t size
 }
 
 void game_server::handle_attack(int channel_id, const char* data, std::size_t size) {
-    if (size < 4) {
-        LOGW("Invalid attack data from channel {}", channel_id);
+    lemondory::shared::attack_req req;
+    if (!lemondory::shared::attack_req::parse(data, data + size, req)) {
+        LOGW("Invalid attack_req from channel={}", channel_id);
         return;
     }
 
-    int target_id = *reinterpret_cast<const int*>(data);
-    LOGI("Attack from channel={} to target={}", channel_id, target_id);
-    
-    // TODO: 실제 공격 로직 구현
-    // - 타겟 검증
-    // - 데미지 계산
-    // - 결과 브로드캐스트
-    
-    const char* response = "ATTACK_SUCCESS";
-    send_test_frame(channel_id, 1004, response, strlen(response));
+    // target_id를 channel_id로 취급 (클라이언트가 상대 channel_id를 알고 있다고 가정)
+    int target_channel = static_cast<int>(req.target_id);
+    LOGI("Attack channel={} -> target_channel={} skill={}", channel_id, target_channel, req.skill_id);
+
+    // 공격자 / 타겟 엔티티 조회
+    Entity attacker_entity = 0, target_entity = 0;
+    {
+        std::lock_guard<std::mutex> lk(mtx_);
+        if (auto it = channel_to_entity_.find(channel_id); it != channel_to_entity_.end())
+            attacker_entity = it->second;
+        if (auto it = channel_to_entity_.find(target_channel); it != channel_to_entity_.end())
+            target_entity = it->second;
+    }
+
+    if (!attacker_entity || !target_entity) {
+        LOGW("Attack: entity not found (attacker={} target={})", attacker_entity, target_entity);
+        lemondory::shared::attack_res res{false, "target not found", 0, 0, 0};
+        auto payload = res.serialize();
+        send_test_frame(channel_id, 1004, payload.data(), payload.size());
+        return;
+    }
+
+    // 데미지 계산 (skill_id 기반 확장 가능, 현재는 고정 10)
+    std::uint32_t damage = 10 + req.skill_id * 5;
+    auto* combat = game_service().get_system<CombatSystem>();
+    if (!combat) return;
+    combat->take_damage(target_entity, damage);
+
+    std::uint32_t remaining_hp = combat->get_hp(target_entity);
+    bool target_dead = (remaining_hp == 0);
+
+    // 공격자에게 결과 응답
+    lemondory::shared::attack_res res{true, target_dead ? "killed" : "hit", 1, damage, remaining_hp};
+    auto res_payload = res.serialize();
+    send_test_frame(channel_id, 1004, res_payload.data(), res_payload.size());
+
+    // 맵 전체에 데미지 브로드캐스트
+    lemondory::shared::damage_notify notify{
+        static_cast<std::uint32_t>(channel_id),
+        req.target_id, damage, remaining_hp, 1, req.timestamp
+    };
+    auto notify_payload = notify.serialize();
+    broadcast_except(channel_id, 1004, notify_payload.data(), notify_payload.size());
+
+    if (target_dead) {
+        LOGI("Entity {} killed by channel={}", static_cast<int>(target_entity), channel_id);
+        game_service().destroy_entity(target_entity);
+        std::lock_guard<std::mutex> lk(mtx_);
+        channel_to_entity_.erase(target_channel);
+    }
+}
+
+void game_server::handle_map_enter(int channel_id, const char* data, std::size_t size) {
+    lemondory::shared::map_enter_req req;
+    if (!lemondory::shared::map_enter_req::parse(data, data + size, req)) {
+        LOGW("Invalid map_enter_req from channel={}", channel_id);
+        return;
+    }
+
+    int target_map_id = static_cast<int>(req.map_id);
+    LOGI("Map enter request: channel={} -> map={}", channel_id, target_map_id);
+
+    // 요청한 맵이 설정에 존재하는지 확인
+    const lemondory::core::MapConfig* map_cfg = nullptr;
+    for (const auto& m : config_.maps) {
+        if (m.id == target_map_id) { map_cfg = &m; break; }
+    }
+
+    if (!map_cfg) {
+        LOGW("Map {} not found", target_map_id);
+        lemondory::shared::map_enter_res res{false, "map not found", 0, "", 0, 0, 0, 0};
+        auto payload = res.serialize();
+        send_test_frame(channel_id, 1005, payload.data(), payload.size());
+        return;
+    }
+
+    if (main_thread_manager_) {
+        int current_map = get_player_map(channel_id);
+        if (current_map != target_map_id)
+            update_player_map(channel_id, target_map_id);
+    }
+
+    // 플레이어 엔티티의 map_id 업데이트
+    {
+        std::lock_guard<std::mutex> lk(mtx_);
+        if (auto it = channel_to_entity_.find(channel_id); it != channel_to_entity_.end()) {
+            if (auto* player = game_service().get_component<Player>(it->second))
+                player->map_id = static_cast<std::uint32_t>(target_map_id);
+        }
+    }
+
+    lemondory::shared::map_enter_res res{
+        true, "ok",
+        req.map_id, map_cfg->name,
+        req.x, req.y, req.z,
+        0
+    };
+    auto payload = res.serialize();
+    send_test_frame(channel_id, 1005, payload.data(), payload.size());
+    LOGI("channel={} entered map={} ({})", channel_id, target_map_id, map_cfg->name);
+}
+
+// ── 길드 핸들러 (인메모리, DB 연동 전 임시 구현) ────────────────────────────
+
+void game_server::handle_guild_create(int channel_id, const char* data, std::size_t size) {
+    lemondory::shared::guild_create_req req;
+    if (!lemondory::shared::guild_create_req::parse(data, data + size, req)) {
+        LOGW("Invalid guild_create_req from channel={}", channel_id);
+        return;
+    }
+
+    std::lock_guard<std::mutex> lk(guild_mutex_);
+
+    // 이미 길드에 속해 있으면 거부
+    if (channel_to_guild_.count(channel_id)) {
+        lemondory::shared::guild_create_res res{false, "already in a guild", 0};
+        auto payload = res.serialize();
+        send_test_frame(channel_id, 2001, payload.data(), payload.size());
+        return;
+    }
+
+    std::uint32_t guild_id = next_guild_id_++;
+    GuildData guild{guild_id, req.guild_name, req.guild_description, channel_id, {channel_id}};
+    guilds_[guild_id] = std::move(guild);
+    channel_to_guild_[channel_id] = guild_id;
+
+    LOGI("Guild created: id={} name='{}' by channel={}", guild_id, req.guild_name, channel_id);
+
+    lemondory::shared::guild_create_res res{true, "ok", guild_id};
+    auto payload = res.serialize();
+    send_test_frame(channel_id, 2001, payload.data(), payload.size());
+}
+
+void game_server::handle_guild_join(int channel_id, const char* data, std::size_t size) {
+    lemondory::shared::guild_join_req req;
+    if (!lemondory::shared::guild_join_req::parse(data, data + size, req)) {
+        LOGW("Invalid guild_join_req from channel={}", channel_id);
+        return;
+    }
+
+    std::lock_guard<std::mutex> lk(guild_mutex_);
+
+    auto git = guilds_.find(req.guild_id);
+    if (git == guilds_.end()) {
+        lemondory::shared::guild_join_res res{false, "guild not found", 0};
+        auto payload = res.serialize();
+        send_test_frame(channel_id, 2002, payload.data(), payload.size());
+        return;
+    }
+    if (channel_to_guild_.count(channel_id)) {
+        lemondory::shared::guild_join_res res{false, "already in a guild", 0};
+        auto payload = res.serialize();
+        send_test_frame(channel_id, 2002, payload.data(), payload.size());
+        return;
+    }
+
+    git->second.members.push_back(channel_id);
+    channel_to_guild_[channel_id] = req.guild_id;
+
+    LOGI("channel={} joined guild={} ({})", channel_id, req.guild_id, git->second.name);
+
+    lemondory::shared::guild_join_res res{true, "ok", 0};
+    auto payload = res.serialize();
+    send_test_frame(channel_id, 2002, payload.data(), payload.size());
+}
+
+void game_server::handle_guild_leave(int channel_id, const char* data, std::size_t size) {
+    std::lock_guard<std::mutex> lk(guild_mutex_);
+
+    auto cit = channel_to_guild_.find(channel_id);
+    if (cit == channel_to_guild_.end()) {
+        LOGW("channel={} not in any guild (leave)", channel_id);
+        return;
+    }
+
+    std::uint32_t guild_id = cit->second;
+    channel_to_guild_.erase(cit);
+
+    auto git = guilds_.find(guild_id);
+    if (git != guilds_.end()) {
+        auto& members = git->second.members;
+        members.erase(std::remove(members.begin(), members.end(), channel_id), members.end());
+        if (members.empty()) {
+            LOGI("Guild {} disbanded (no members)", guild_id);
+            guilds_.erase(git);
+        }
+    }
+
+    LOGI("channel={} left guild={}", channel_id, guild_id);
+
+    lemondory::shared::guild_leave_res res{true, "ok"};
+    auto payload = res.serialize();
+    send_test_frame(channel_id, 2003, payload.data(), payload.size());
 }
 
 // 스레딩 시스템 초기화

@@ -1,5 +1,6 @@
 #include "map_thread.hpp"
-#include <iostream>
+#include "../components/health.hpp"
+#include "common/log.hpp"
 #include <chrono>
 #include <algorithm>
 
@@ -29,8 +30,7 @@ MapThread::MapThread(int map_id, const std::string& map_name,
     map_objects_component_ = game_service_.get_component<MapObjectsComponent>(map_entity_);
     map_bounds_component_ = game_service_.get_component<MapBoundsComponent>(map_entity_);
     
-    std::cout << "[MapThread] Created map thread " << map_id 
-              << " (" << map_name << ")" << std::endl;
+    LOGI("MapThread created: map={} ({})", map_id, map_name);
 }
 
 MapThread::~MapThread() {
@@ -43,7 +43,7 @@ void MapThread::start() {
     running_ = true;
     thread_ = std::thread(&MapThread::thread_loop, this);
     
-    std::cout << "[MapThread] Started map thread " << map_id_ << std::endl;
+    LOGI("MapThread started: map={}", map_id_);
 }
 
 void MapThread::stop() {
@@ -57,7 +57,7 @@ void MapThread::stop() {
         thread_.join();
     }
     
-    std::cout << "[MapThread] Stopped map thread " << map_id_ << std::endl;
+    LOGI("MapThread stopped: map={}", map_id_);
 }
 
 void MapThread::join() {
@@ -114,8 +114,7 @@ void MapThread::add_player(int channel_id, Entity player_entity) {
         map_objects_component_->add_player(player_entity);
     }
     
-    std::cout << "[MapThread] Added player " << channel_id 
-              << " to map " << map_id_ << std::endl;
+    LOGD("MapThread map={}: player {} added", map_id_, channel_id);
 }
 
 void MapThread::remove_player(int channel_id) {
@@ -123,14 +122,12 @@ void MapThread::remove_player(int channel_id) {
     local_players_.erase(channel_id);
     player_count_.store(static_cast<int>(local_players_.size()));
     
-    std::cout << "[MapThread] Removed player " << channel_id 
-              << " from map " << map_id_ << std::endl;
+    LOGD("MapThread map={}: player {} removed", map_id_, channel_id);
 }
 
 void MapThread::update_player(int channel_id, const std::string& data) {
     // 플레이어 업데이트 로직
-    std::cout << "[MapThread] Updated player " << channel_id 
-              << " in map " << map_id_ << std::endl;
+    LOGD("MapThread map={}: player {} updated", map_id_, channel_id);
 }
 
 void MapThread::update_map(float delta_time) {
@@ -203,7 +200,7 @@ void MapThread::handle_interaction_events(float delta_time) {
 // 카운터 메서드들은 이제 헤더에서 inline으로 정의됨
 
 void MapThread::thread_loop() {
-    std::cout << "[MapThread] Thread loop started for map " << map_id_ << std::endl;
+    LOGD("MapThread loop started: map={}", map_id_);
     
     auto last_update = std::chrono::steady_clock::now();
     
@@ -225,7 +222,7 @@ void MapThread::thread_loop() {
         std::this_thread::sleep_for(std::chrono::milliseconds(16));
     }
     
-    std::cout << "[MapThread] Thread loop ended for map " << map_id_ << std::endl;
+    LOGD("MapThread loop ended: map={}", map_id_);
 }
 
 void MapThread::process_single_packet(const MapPacket& packet) {
@@ -244,29 +241,29 @@ void MapThread::process_single_packet(const MapPacket& packet) {
             handle_chat_packet(packet.channel_id, packet.data);
             break;
         default:
-            std::cout << "[MapThread] Unknown packet type: " << packet.cmd << std::endl;
+            LOGW("MapThread map={}: unknown cmd={:#x}", map_id_, packet.cmd);
             break;
     }
 }
 
 void MapThread::handle_movement_packet(int channel_id, const std::string& data) {
-    // 이동 패킷 처리
-    std::cout << "[MapThread] Movement packet from player " << channel_id << std::endl;
+    if (data.size() < 12) return;
+    float x = *reinterpret_cast<const float*>(data.data());
+    float y = *reinterpret_cast<const float*>(data.data() + 4);
+    float z = *reinterpret_cast<const float*>(data.data() + 8);
+    LOGD("MapThread map={}: move channel={} ({:.1f},{:.1f},{:.1f})", map_id_, channel_id, x, y, z);
 }
 
 void MapThread::handle_combat_packet(int channel_id, const std::string& data) {
-    // 전투 패킷 처리
-    std::cout << "[MapThread] Combat packet from player " << channel_id << std::endl;
+    LOGD("MapThread map={}: combat from channel={}", map_id_, channel_id);
 }
 
 void MapThread::handle_interaction_packet(int channel_id, const std::string& data) {
-    // 상호작용 패킷 처리
-    std::cout << "[MapThread] Interaction packet from player " << channel_id << std::endl;
+    LOGD("MapThread map={}: interaction from channel={}", map_id_, channel_id);
 }
 
 void MapThread::handle_chat_packet(int channel_id, const std::string& data) {
-    // 채팅 패킷 처리
-    std::cout << "[MapThread] Chat packet from player " << channel_id << std::endl;
+    LOGD("MapThread map={}: chat from channel={}", map_id_, channel_id);
 }
 
 void MapThread::update_object_position(Entity entity, float delta_time) {
@@ -322,8 +319,43 @@ void MapThread::clamp_object_to_bounds(Entity entity) {
 }
 
 void MapThread::spawn_monsters(float delta_time) {
-    // 몬스터 스폰 로직
-    // (구체적인 구현은 필요에 따라 추가)
+    spawn_timer_ += delta_time;
+    if (spawn_timer_ < SPAWN_INTERVAL) return;
+    spawn_timer_ = 0.0f;
+
+    std::lock_guard<std::mutex> lock(objects_mutex_);
+    if (static_cast<int>(local_monsters_.size()) >= MAX_MONSTERS) return;
+
+    // 맵 범위 내 랜덤 위치 계산 (간단한 선형 분포)
+    static std::uint32_t seed = 42;
+    auto next_rand = [&](float max) -> float {
+        seed = seed * 1664525u + 1013904223u;
+        return (seed % 10000) / 10000.0f * max;
+    };
+
+    int spawn_count = std::min(3, MAX_MONSTERS - static_cast<int>(local_monsters_.size()));
+    for (int i = 0; i < spawn_count; ++i) {
+        Entity entity = game_service_.create_entity();
+
+        float x = next_rand(width_);
+        float y = 0.0f;
+        float z = next_rand(height_);
+
+        game_service_.add_component(entity, std::make_unique<Position>(x, y, z));
+        game_service_.add_component(entity, std::make_unique<Velocity>(0.0f, 0.0f, 0.0f));
+        game_service_.add_component(entity, std::make_unique<Health>(100, 0));
+        game_service_.add_component(entity, std::make_unique<Monster>(1, 1)); // type=1(Goblin), level=1
+        game_service_.add_component(entity,
+            std::make_unique<GameObject>(GameObjectType::MONSTER, "Goblin", entity));
+
+        local_monsters_.insert(entity);
+        monster_count_.store(static_cast<int>(local_monsters_.size()));
+
+        if (map_objects_component_)
+            map_objects_component_->add_monster(entity);
+    }
+
+    LOGD("Map {} spawned {} monsters (total={})", map_id_, spawn_count, local_monsters_.size());
 }
 
 void MapThread::spawn_items(float delta_time) {

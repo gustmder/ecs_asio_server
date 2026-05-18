@@ -16,6 +16,7 @@
 #include "components/game_object.hpp"
 #include "components/health.hpp"
 #include "threading/main_thread_manager.hpp"
+#include "systems/combat_system.hpp"
 #include "server/core/server_config.hpp"
 
 namespace lemondory::game {
@@ -68,6 +69,10 @@ private:
     void handle_move(int channel_id, const char* data, std::size_t size);
     void handle_chat(int channel_id, const char* data, std::size_t size);
     void handle_attack(int channel_id, const char* data, std::size_t size);
+    void handle_map_enter(int channel_id, const char* data, std::size_t size);
+    void handle_guild_create(int channel_id, const char* data, std::size_t size);
+    void handle_guild_join(int channel_id, const char* data, std::size_t size);
+    void handle_guild_leave(int channel_id, const char* data, std::size_t size);
 
 private:
     std::shared_ptr<lemondory::network::asio_server> server_;
@@ -92,6 +97,19 @@ private:
     // 플레이어 맵 매핑 (channel_id -> map_id)
     std::unordered_map<int, int> player_map_mapping_;
     std::mutex player_map_mutex_;
+
+    // 인메모리 길드 (DB 연동 전 임시)
+    struct GuildData {
+        std::uint32_t id;
+        std::string name;
+        std::string description;
+        int master_channel_id;
+        std::vector<int> members; // channel_id 목록
+    };
+    std::unordered_map<std::uint32_t, GuildData> guilds_;
+    std::unordered_map<int, std::uint32_t> channel_to_guild_; // channel_id → guild_id
+    std::uint32_t next_guild_id_{1};
+    std::mutex guild_mutex_;
     
     // 스레딩 시스템 헬퍼
     void initialize_threading_system();

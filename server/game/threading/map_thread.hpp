@@ -154,6 +154,11 @@ private:
     bool is_object_in_bounds(Entity entity);
     void clamp_object_to_bounds(Entity entity);
     
+    // 스폰 타이머
+    float spawn_timer_{0.0f};
+    static constexpr float SPAWN_INTERVAL = 30.0f; // 30초마다 스폰
+    static constexpr int   MAX_MONSTERS   = 10;    // 맵당 최대 몬스터 수
+
     // 맵 이벤트 처리 헬퍼
     void spawn_monsters(float delta_time);
     void spawn_items(float delta_time);
