@@ -1,5 +1,9 @@
 # 개발용 — MySQL + Redis만 실행 (서버는 로컬에서 직접 빌드·실행)
 # 사용: docker compose -f docker-compose.dev.yml up -d
+#
+# ⚠️  개발 전용 자격증명 — 운영 환경 절대 사용 금지
+#     운영 배포는 docker-compose.prod.yml + .env 파일 조합을 사용할 것
+#     (.env.example 참고)
 
 services:
   mysql:

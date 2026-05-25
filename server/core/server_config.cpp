@@ -18,7 +18,7 @@ ServerConfig ServerConfig::load(const std::string& path) {
 
     json j;
     try {
-        j = json::parse(f);
+        j = json::parse(f, nullptr, true, true);  // ignore_comments=true: // 주석 허용
     } catch (const std::exception& e) {
         LOGW("Config parse error ({}): {}. Using defaults.", path, e.what());
         return cfg;
@@ -65,6 +65,30 @@ ServerConfig ServerConfig::load(const std::string& path) {
             if (m.contains("max_players")) mc.max_players = m["max_players"].get<int>();
             cfg.maps.push_back(mc);
         }
+    }
+
+    // ── DB (role별 개별 설정) ─────────────────────────────────────
+    if (j.contains("databases") && j["databases"].is_object()) {
+        for (auto& [key, val] : j["databases"].items()) {
+            DbConfig dc;
+            if (val.contains("enabled"))   dc.enabled   = val["enabled"].get<bool>();
+            if (val.contains("host"))      dc.host      = val["host"].get<std::string>();
+            if (val.contains("port"))      dc.port      = val["port"].get<uint16_t>();
+            if (val.contains("name"))      dc.name      = val["name"].get<std::string>();
+            if (val.contains("user"))      dc.user      = val["user"].get<std::string>();
+            if (val.contains("password"))  dc.password  = val["password"].get<std::string>();
+            if (val.contains("pool_size")) dc.pool_size = val["pool_size"].get<int>();
+            cfg.databases[key] = dc;
+        }
+    }
+
+    // ── Redis ────────────────────────────────────────────────────
+    if (auto r = j.find("redis"); r != j.end()) {
+        if (r->contains("enabled"))  cfg.redis.enabled  = (*r)["enabled"].get<bool>();
+        if (r->contains("host"))     cfg.redis.host     = (*r)["host"].get<std::string>();
+        if (r->contains("port"))     cfg.redis.port     = (*r)["port"].get<uint16_t>();
+        if (r->contains("password")) cfg.redis.password = (*r)["password"].get<std::string>();
+        if (r->contains("db_index")) cfg.redis.db_index = (*r)["db_index"].get<int>();
     }
 
     LOGI("Config loaded from {}.", path);
