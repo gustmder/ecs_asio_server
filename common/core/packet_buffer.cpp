@@ -1,7 +1,9 @@
 // packet_buffer.cpp
 #include "packet_buffer.hpp"
 #include "data_option.hpp"
-#include <cstring> // for memcpy
+#include <string>
+#include <stdexcept>
+#include <cstring>
 #include <algorithm>
 
 namespace lemondory::core {
