@@ -14,6 +14,10 @@
 - **socket_channel_base 미사용 버퍼 제거** : write/send/read 3개 socket_buffer 제거 (채널당 ~128KB 낭비 제거)
 - **frame_acc\_ O(n) erase → 오프셋 방식** : 읽기 위치만 전진, 절반 소비 시 한 번만 compact
 - **CRC 검증 활성화** : 페이로드 CRC 불일치 프레임 드롭 처리
+- **DB 레이어 (MySQL)** : DbManager(DbRole별 pool) + PlayerDao + FailureSink, 3회 재시도, JSON Lines 스냅샷
+- **비동기 DB 처리 (per-player strand)** : `asio::thread_pool db_pool_{4}` + `db_strands_` 맵으로 io_context 블로킹 제거, 플레이어 내 login→logout 순서 보장
+- **graceful shutdown** : `stop()`에서 `db_pool_.join()` — pending DB 작업 완료 후 종료
+- **orphaned-entity 방지** : login DB 콜백 복귀 시 `channels_.count(ch_id)` 확인, 채널 없으면 entity 미생성
 
 ### 코드 품질
 - **asio_channel.cpp 주석 정리** : 970줄 → 230줄 (이전 버전 코드 주석 전량 제거)
@@ -43,10 +47,10 @@
 
 ## 다음 단계: 기능 구현
 
-### DB 레이어 (미구현)
-- 플레이어 데이터 저장/로드 (MySQL 또는 Redis)
-- 로그인 인증 (세션 토큰)
-- 인벤토리/아이템 영속화
+### DB 레이어 (Phase 2 완료)
+- ~~플레이어 데이터 저장/로드~~ — find_or_create, save_position, save_stats 구현 완료
+- 로그인 인증 (세션 토큰) — Phase 3에서 Auth 서버와 연동 예정
+- 인벤토리/아이템 영속화 — 프로토콜 미정의, 향후 구현
 
 ### 게임 로직 (스텁 상태)
 - 공격 로직: 타겟 검증, 데미지 계산, 결과 브로드캐스트
@@ -55,13 +59,29 @@
 
 ### 인프라
 - SSL/TLS 지원
-- graceful shutdown (pending write flush 후 종료)
+- ~~graceful shutdown~~ — DB 저장 완료 후 종료 (`db_pool_.join()`) 구현 완료. 네트워크 write flush는 미구현
 - Rate limiting (패킷 빈도 제한)
+
+---
+
+## 남은 이슈 (우선순위별)
+
+### 🔴 높음
+- **thread-resilience** : DB 스레드 uncaught exception → try-catch + 로그·재시작 처리
+
+### 🟡 중간
+- **periodic-save** : 30초 타이머 기반 위치 자동 저장 (서버 크래시 대비)
+- **pool-size-sync** : db_thread_pool 스레드 수 ≤ `DbConfig.pool_size` 규칙 assert
+
+### 🟢 낮음
+- **sink-fallback** : FailureSink 파일 I/O 실패 시 stderr/spdlog::critical fallback
+- **snapshot-replay** : `logs/failed_saves.jsonl` 재반영 CLI 도구
 
 ---
 
 ## 알려진 제약 / 의도적 미구현
 
-- **길드 시스템** : `protocol_guild.hpp` 정의 완료, 핸들러 미등록 (DB 이후 구현 예정)
+- **길드 시스템** : `protocol_guild.hpp` 정의 완료, 핸들러 인메모리 구현 (DB 연동 미완)
 - **인벤토리** : 프로토콜 미정의
 - **전투 결과 검증** : 서버-권위 구조 미적용 (클라이언트 신뢰 방식)
+- **MapThread-ECS 동시성** : MapThread가 GameService::instance() 접근 — 잠재적 data race (Phase 3에서 설계 검토 필요)

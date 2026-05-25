@@ -29,6 +29,14 @@ inline std::uint32_t read_le32(const char* p) {
          | (std::uint32_t(std::uint8_t(p[2])) << 16) | (std::uint32_t(std::uint8_t(p[3])) << 24);
 }
 
+// float ↔ LE-encoded uint32 (memcpy: no UB, no alignment assumption)
+inline void write_float_le(std::vector<char>& out, float v) {
+    std::uint32_t t; std::memcpy(&t, &v, sizeof(t)); write_le32(out, t);
+}
+inline float read_float_le(const char* p) {
+    std::uint32_t t = read_le32(p); float v; std::memcpy(&v, &t, sizeof(v)); return v;
+}
+
 // length-prefixed string
 inline void write_lp_string(std::vector<char>& out, const std::string& s) {
     write_le32(out, static_cast<std::uint32_t>(s.size()));
@@ -123,22 +131,19 @@ struct echo_res {
 // ==================== 로그인 메시지 ====================
 
 struct login_req {
-    std::string username;
-    std::string password;
-    std::uint32_t version;
-    
+    std::string player_name;
+    std::string session_token;  // Phase 1: "", Phase 3: JWT from auth server
+
     std::vector<char> serialize() const {
         std::vector<char> out;
-        write_lp_string(out, username);
-        write_lp_string(out, password);
-        write_le32(out, version);
+        write_lp_string(out, player_name);
+        write_lp_string(out, session_token);
         return out;
     }
-    
+
     static bool parse(const char* p, const char* end, login_req& out) {
-        return read_lp_string(p, end, out.username) &&
-               read_lp_string(p, end, out.password) &&
-               (p + 4 <= end) && (out.version = read_le32(p), p += 4, true);
+        return read_lp_string(p, end, out.player_name) &&
+               read_lp_string(p, end, out.session_token);
     }
 };
 

@@ -13,20 +13,20 @@ struct map_enter_req {
     std::vector<char> serialize() const {
         std::vector<char> out;
         write_le32(out, map_id);
-        write_le32(out, *reinterpret_cast<const std::uint32_t*>(&x));
-        write_le32(out, *reinterpret_cast<const std::uint32_t*>(&y));
-        write_le32(out, *reinterpret_cast<const std::uint32_t*>(&z));
+        write_float_le(out, x);
+        write_float_le(out, y);
+        write_float_le(out, z);
         write_le32(out, timestamp);
         return out;
     }
     
     static bool parse(const char* p, const char* end, map_enter_req& out) {
         if (p + 20 > end) return false;
-        out.map_id = read_le32(p); p += 4;
-        out.x = *reinterpret_cast<const float*>(p); p += 4;
-        out.y = *reinterpret_cast<const float*>(p); p += 4;
-        out.z = *reinterpret_cast<const float*>(p); p += 4;
-        out.timestamp = read_le32(p); p += 4;
+        out.map_id    = read_le32(p);    p += 4;
+        out.x         = read_float_le(p); p += 4;
+        out.y         = read_float_le(p); p += 4;
+        out.z         = read_float_le(p); p += 4;
+        out.timestamp = read_le32(p);    p += 4;
         return true;
     }
 };
@@ -45,9 +45,9 @@ struct map_enter_res {
         write_lp_string(out, message);
         write_le32(out, map_id);
         write_lp_string(out, map_name);
-        write_le32(out, *reinterpret_cast<const std::uint32_t*>(&x));
-        write_le32(out, *reinterpret_cast<const std::uint32_t*>(&y));
-        write_le32(out, *reinterpret_cast<const std::uint32_t*>(&z));
+        write_float_le(out, x);
+        write_float_le(out, y);
+        write_float_le(out, z);
         write_le32(out, player_count);
         return out;
     }
@@ -58,10 +58,10 @@ struct map_enter_res {
         if (!read_lp_string(p, end, out.message)) return false;
         out.map_id = read_le32(p); p += 4;
         if (!read_lp_string(p, end, out.map_name)) return false;
-        out.x = *reinterpret_cast<const float*>(p); p += 4;
-        out.y = *reinterpret_cast<const float*>(p); p += 4;
-        out.z = *reinterpret_cast<const float*>(p); p += 4;
-        out.player_count = read_le32(p); p += 4;
+        out.x            = read_float_le(p); p += 4;
+        out.y            = read_float_le(p); p += 4;
+        out.z            = read_float_le(p); p += 4;
+        out.player_count = read_le32(p);    p += 4;
         return true;
     }
 };
@@ -126,10 +126,10 @@ struct map_object_info {
         write_le32(out, object_id);
         out.push_back(object_type);
         write_lp_string(out, object_name);
-        write_le32(out, *reinterpret_cast<const std::uint32_t*>(&x));
-        write_le32(out, *reinterpret_cast<const std::uint32_t*>(&y));
-        write_le32(out, *reinterpret_cast<const std::uint32_t*>(&z));
-        write_le32(out, *reinterpret_cast<const std::uint32_t*>(&rotation));
+        write_float_le(out, x);
+        write_float_le(out, y);
+        write_float_le(out, z);
+        write_float_le(out, rotation);
         write_le32(out, level);
         write_le32(out, hp);
         write_le32(out, max_hp);
@@ -139,12 +139,12 @@ struct map_object_info {
     static bool parse(const char* p, const char* end, map_object_info& out) {
         if (p + 28 > end) return false;
         out.object_id = read_le32(p); p += 4;
-        out.object_type = *p++; p += 1;
+        out.object_type = static_cast<std::uint8_t>(*p++);
         if (!read_lp_string(p, end, out.object_name)) return false;
-        out.x = *reinterpret_cast<const float*>(p); p += 4;
-        out.y = *reinterpret_cast<const float*>(p); p += 4;
-        out.z = *reinterpret_cast<const float*>(p); p += 4;
-        out.rotation = *reinterpret_cast<const float*>(p); p += 4;
+        out.x        = read_float_le(p); p += 4;
+        out.y        = read_float_le(p); p += 4;
+        out.z        = read_float_le(p); p += 4;
+        out.rotation = read_float_le(p); p += 4;
         out.level = read_le32(p); p += 4;
         out.hp = read_le32(p); p += 4;
         out.max_hp = read_le32(p); p += 4;
@@ -246,7 +246,7 @@ struct map_info_res {
         out.map_height = read_le32(p); p += 4;
         out.max_players = read_le32(p); p += 4;
         out.current_players = read_le32(p); p += 4;
-        out.map_type = *p++; p += 1;
+        out.map_type       = static_cast<std::uint8_t>(*p++);
         out.required_level = read_le32(p); p += 4;
         return true;
     }

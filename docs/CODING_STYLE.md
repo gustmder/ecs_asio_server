@@ -287,4 +287,73 @@ AllowShortLoopsOnASingleLine: false
 
 ---
 
+## 프로토콜 직렬화 체크리스트
+
+패킷 struct를 추가하거나 수정할 때 반드시 확인.
+
+### float 직렬화 (serialize)
+```cpp
+// ✅ 올바름 — write_float_le (memcpy 기반, 정렬 UB 없음)
+write_float_le(out, x);
+
+// ❌ 잘못됨 — reinterpret_cast: 정렬 UB, 플랫폼 의존
+write_le32(out, *reinterpret_cast<const std::uint32_t*>(&x));
+```
+
+### float 역직렬화 (parse)
+```cpp
+// ✅ 올바름 — read_float_le (LE 디코딩 후 memcpy)
+out.x = read_float_le(p); p += 4;
+
+// ❌ 잘못됨 — reinterpret_cast: 정렬 UB, BE 플랫폼에서 값 반전
+out.x = *reinterpret_cast<const float*>(p); p += 4;
+```
+
+### 단일 바이트 필드 (uint8_t, bool)
+```cpp
+// ✅ 올바름 — p를 정확히 1 전진
+out.field = static_cast<std::uint8_t>(*p++);
+
+// ❌ 잘못됨 — p를 2 전진시켜 다음 바이트를 건너뜀
+out.field = *p++; p += 1;  // BUG: double-increment
+```
+
+### 경계 검사 (parse 최소 크기)
+```cpp
+// 필드 크기를 직접 합산해서 검사값 결정
+// le32=4, le16=2, bool/uint8=1, lp_string=최소 4(len)+N
+// 예: le32(4) + uint8(1) + le32(4) + le32(4) + le32(4) = 17
+if (p + 17 > end) return false;
+
+// ❌ 의심스러운 경우: 옛날 숫자를 복붙하지 말 것
+if (p + 20 > end) return false;  // 실제 최소가 21이라면 버그
+```
+
+### 핸들러에서 float 읽기
+```cpp
+// ✅ protocol struct::parse 사용
+player_move_req req;
+if (!player_move_req::parse(data, data + size, req)) return;
+float x = req.x;  // 정확한 LE 디코딩 보장
+
+// ❌ raw reinterpret_cast — 정렬 UB
+float x = *reinterpret_cast<const float*>(data);
+
+// ❌ raw memcpy — LE 보장 없음 (BE 환경 불안)
+float x; std::memcpy(&x, data, 4);
+```
+
+### 브로드캐스트 버퍼 구성
+```cpp
+// ✅ write_le32 / write_float_le 사용
+std::vector<char> buf;
+write_le32(buf, static_cast<std::uint32_t>(channel_id));
+write_float_le(buf, x);
+
+// ❌ memcpy(&channel_id, 4) — 네이티브 엔디안 그대로 복사
+std::memcpy(buf.data(), &channel_id, 4);
+```
+
+---
+
 **📝 이 스타일 가이드는 프로젝트 전체의 코드 일관성을 보장하기 위한 규칙입니다.**

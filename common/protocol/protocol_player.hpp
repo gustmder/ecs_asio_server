@@ -12,21 +12,21 @@ struct player_move_req {
     
     std::vector<char> serialize() const {
         std::vector<char> out;
-        write_le32(out, *reinterpret_cast<const std::uint32_t*>(&x));
-        write_le32(out, *reinterpret_cast<const std::uint32_t*>(&y));
-        write_le32(out, *reinterpret_cast<const std::uint32_t*>(&z));
-        write_le32(out, *reinterpret_cast<const std::uint32_t*>(&rotation));
+        write_float_le(out, x);
+        write_float_le(out, y);
+        write_float_le(out, z);
+        write_float_le(out, rotation);
         write_le32(out, timestamp);
         return out;
     }
-    
+
     static bool parse(const char* p, const char* end, player_move_req& out) {
         if (p + 20 > end) return false;
-        out.x = *reinterpret_cast<const float*>(p); p += 4;
-        out.y = *reinterpret_cast<const float*>(p); p += 4;
-        out.z = *reinterpret_cast<const float*>(p); p += 4;
-        out.rotation = *reinterpret_cast<const float*>(p); p += 4;
-        out.timestamp = read_le32(p); p += 4;
+        out.x        = read_float_le(p); p += 4;
+        out.y        = read_float_le(p); p += 4;
+        out.z        = read_float_le(p); p += 4;
+        out.rotation = read_float_le(p); p += 4;
+        out.timestamp = read_le32(p);    p += 4;
         return true;
     }
 };
@@ -40,22 +40,22 @@ struct player_move_res {
     std::vector<char> serialize() const {
         std::vector<char> out;
         write_le32(out, player_id);
-        write_le32(out, *reinterpret_cast<const std::uint32_t*>(&x));
-        write_le32(out, *reinterpret_cast<const std::uint32_t*>(&y));
-        write_le32(out, *reinterpret_cast<const std::uint32_t*>(&z));
-        write_le32(out, *reinterpret_cast<const std::uint32_t*>(&rotation));
+        write_float_le(out, x);
+        write_float_le(out, y);
+        write_float_le(out, z);
+        write_float_le(out, rotation);
         write_le32(out, timestamp);
         return out;
     }
-    
+
     static bool parse(const char* p, const char* end, player_move_res& out) {
         if (p + 24 > end) return false;
-        out.player_id = read_le32(p); p += 4;
-        out.x = *reinterpret_cast<const float*>(p); p += 4;
-        out.y = *reinterpret_cast<const float*>(p); p += 4;
-        out.z = *reinterpret_cast<const float*>(p); p += 4;
-        out.rotation = *reinterpret_cast<const float*>(p); p += 4;
-        out.timestamp = read_le32(p); p += 4;
+        out.player_id = read_le32(p);    p += 4;
+        out.x        = read_float_le(p); p += 4;
+        out.y        = read_float_le(p); p += 4;
+        out.z        = read_float_le(p); p += 4;
+        out.rotation = read_float_le(p); p += 4;
+        out.timestamp = read_le32(p);    p += 4;
         return true;
     }
 };
@@ -93,10 +93,10 @@ struct player_info_res {
         write_lp_string(out, player_name);
         write_le32(out, level);
         write_le32(out, experience);
-        write_le32(out, *reinterpret_cast<const std::uint32_t*>(&x));
-        write_le32(out, *reinterpret_cast<const std::uint32_t*>(&y));
-        write_le32(out, *reinterpret_cast<const std::uint32_t*>(&z));
-        write_le32(out, *reinterpret_cast<const std::uint32_t*>(&rotation));
+        write_float_le(out, x);
+        write_float_le(out, y);
+        write_float_le(out, z);
+        write_float_le(out, rotation);
         write_le32(out, map_id);
         return out;
     }
@@ -107,11 +107,11 @@ struct player_info_res {
         if (!read_lp_string(p, end, out.player_name)) return false;
         out.level = read_le32(p); p += 4;
         out.experience = read_le32(p); p += 4;
-        out.x = *reinterpret_cast<const float*>(p); p += 4;
-        out.y = *reinterpret_cast<const float*>(p); p += 4;
-        out.z = *reinterpret_cast<const float*>(p); p += 4;
-        out.rotation = *reinterpret_cast<const float*>(p); p += 4;
-        out.map_id = read_le32(p); p += 4;
+        out.x        = read_float_le(p); p += 4;
+        out.y        = read_float_le(p); p += 4;
+        out.z        = read_float_le(p); p += 4;
+        out.rotation = read_float_le(p); p += 4;
+        out.map_id   = read_le32(p);     p += 4;
         return true;
     }
 };

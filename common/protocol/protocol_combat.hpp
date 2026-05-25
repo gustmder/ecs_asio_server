@@ -15,21 +15,21 @@ struct attack_req {
         std::vector<char> out;
         write_le32(out, target_id);
         write_le32(out, skill_id);
-        write_le32(out, *reinterpret_cast<const std::uint32_t*>(&x));
-        write_le32(out, *reinterpret_cast<const std::uint32_t*>(&y));
-        write_le32(out, *reinterpret_cast<const std::uint32_t*>(&z));
+        write_float_le(out, x);
+        write_float_le(out, y);
+        write_float_le(out, z);
         write_le32(out, timestamp);
         return out;
     }
     
     static bool parse(const char* p, const char* end, attack_req& out) {
         if (p + 24 > end) return false;
-        out.target_id = read_le32(p); p += 4;
-        out.skill_id = read_le32(p); p += 4;
-        out.x = *reinterpret_cast<const float*>(p); p += 4;
-        out.y = *reinterpret_cast<const float*>(p); p += 4;
-        out.z = *reinterpret_cast<const float*>(p); p += 4;
-        out.timestamp = read_le32(p); p += 4;
+        out.target_id = read_le32(p);    p += 4;
+        out.skill_id  = read_le32(p);    p += 4;
+        out.x         = read_float_le(p); p += 4;
+        out.y         = read_float_le(p); p += 4;
+        out.z         = read_float_le(p); p += 4;
+        out.timestamp = read_le32(p);    p += 4;
         return true;
     }
 };
@@ -105,21 +105,21 @@ struct skill_use_req {
         std::vector<char> out;
         write_le32(out, skill_id);
         write_le32(out, target_id);
-        write_le32(out, *reinterpret_cast<const std::uint32_t*>(&x));
-        write_le32(out, *reinterpret_cast<const std::uint32_t*>(&y));
-        write_le32(out, *reinterpret_cast<const std::uint32_t*>(&z));
+        write_float_le(out, x);
+        write_float_le(out, y);
+        write_float_le(out, z);
         write_le32(out, timestamp);
         return out;
     }
     
     static bool parse(const char* p, const char* end, skill_use_req& out) {
         if (p + 24 > end) return false;
-        out.skill_id = read_le32(p); p += 4;
-        out.target_id = read_le32(p); p += 4;
-        out.x = *reinterpret_cast<const float*>(p); p += 4;
-        out.y = *reinterpret_cast<const float*>(p); p += 4;
-        out.z = *reinterpret_cast<const float*>(p); p += 4;
-        out.timestamp = read_le32(p); p += 4;
+        out.skill_id  = read_le32(p);    p += 4;
+        out.target_id = read_le32(p);    p += 4;
+        out.x         = read_float_le(p); p += 4;
+        out.y         = read_float_le(p); p += 4;
+        out.z         = read_float_le(p); p += 4;
+        out.timestamp = read_le32(p);    p += 4;
         return true;
     }
 };
@@ -174,13 +174,13 @@ struct status_effect_notify {
     }
     
     static bool parse(const char* p, const char* end, status_effect_notify& out) {
-        if (p + 20 > end) return false;
-        out.target_id = read_le32(p); p += 4;
-        out.effect_id = read_le32(p); p += 4;
-        out.effect_type = *p++; p += 1;
-        out.duration = read_le32(p); p += 4;
-        out.value = read_le32(p); p += 4;
-        out.timestamp = read_le32(p); p += 4;
+        if (p + 21 > end) return false;  // 4+4+1+4+4+4 = 21
+        out.target_id   = read_le32(p); p += 4;
+        out.effect_id   = read_le32(p); p += 4;
+        out.effect_type = static_cast<std::uint8_t>(*p++);
+        out.duration    = read_le32(p); p += 4;
+        out.value       = read_le32(p); p += 4;
+        out.timestamp   = read_le32(p); p += 4;
         return true;
     }
 };

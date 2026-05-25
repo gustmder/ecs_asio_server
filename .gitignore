@@ -42,3 +42,6 @@ third_party/spdlog/.git
 # Portfolio / private materials
 portfolio_code/
 *.zip
+
+# 환경변수 (비밀번호 포함) — 절대 커밋하지 말 것
+.env
