@@ -248,9 +248,10 @@ void MapThread::process_single_packet(const MapPacket& packet) {
 
 void MapThread::handle_movement_packet(int channel_id, const std::string& data) {
     if (data.size() < 12) return;
-    float x = *reinterpret_cast<const float*>(data.data());
-    float y = *reinterpret_cast<const float*>(data.data() + 4);
-    float z = *reinterpret_cast<const float*>(data.data() + 8);
+    float x, y, z;
+    std::memcpy(&x, data.data() + 0, 4);
+    std::memcpy(&y, data.data() + 4, 4);
+    std::memcpy(&z, data.data() + 8, 4);
     LOGD("MapThread map={}: move channel={} ({:.1f},{:.1f},{:.1f})", map_id_, channel_id, x, y, z);
 }
 

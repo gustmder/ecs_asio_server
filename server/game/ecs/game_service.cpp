@@ -1,8 +1,8 @@
 #include "game_service.hpp"
-#include "systems/movement_system.hpp"
-#include "systems/ai_system.hpp"
-#include "systems/combat_system.hpp"
-#include "systems/map_system.hpp"
+#include "../systems/movement_system.hpp"
+#include "../systems/ai_system.hpp"
+#include "../systems/combat_system.hpp"
+#include "../systems/map_system.hpp"
 #include "common/log.hpp"
 #include <memory>
 

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../game_service.hpp"
+#include "../ecs/game_service.hpp"
 #include "../components/map.hpp"
 #include "../components/transform.hpp"
 #include "../components/game_object.hpp"

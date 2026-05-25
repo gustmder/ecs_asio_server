@@ -1,8 +1,8 @@
 #include "movement_system.hpp"
-#include "../component.hpp"
+#include "../ecs/component.hpp"
 #include "../components/transform.hpp"
 #include "../components/game_object.hpp"
-#include "../game_service.hpp"
+#include "../ecs/game_service.hpp"
 #include <algorithm>
 #include <cmath>
 

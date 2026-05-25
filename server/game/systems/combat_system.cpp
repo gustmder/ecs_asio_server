@@ -1,5 +1,5 @@
 #include "combat_system.hpp"
-#include "../game_service.hpp"
+#include "../ecs/game_service.hpp"
 #include "../components/health.hpp"
 #include "../components/game_object.hpp"
 #include "common/log.hpp"

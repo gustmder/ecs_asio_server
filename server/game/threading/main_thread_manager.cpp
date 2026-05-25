@@ -1,5 +1,5 @@
 #include "main_thread_manager.hpp"
-#include <iostream>
+#include "common/log.hpp"
 #include <chrono>
 
 namespace lemondory::game {
@@ -19,7 +19,7 @@ void MainThreadManager::start() {
     running_ = true;
     main_thread_ = std::thread(&MainThreadManager::main_loop, this);
     
-    std::cout << "[MainThreadManager] Started main thread" << std::endl;
+    LOGI("MainThreadManager started");
 }
 
 void MainThreadManager::stop() {
@@ -37,7 +37,7 @@ void MainThreadManager::stop() {
         map_thread_manager_->stop_all_map_threads();
     }
     
-    std::cout << "[MainThreadManager] Stopped main thread" << std::endl;
+    LOGI("MainThreadManager stopped");
 }
 
 void MainThreadManager::add_task(std::function<void()> task, int priority) {
@@ -77,13 +77,12 @@ void MainThreadManager::send_packet_to_map(int map_id, int channel_id, std::uint
 
 void MainThreadManager::handle_global_chat(int channel_id, const std::string& message) {
     add_global_task([this, channel_id, message]() {
-        // 글로벌 채팅 처리
-        std::cout << "[GlobalChat] Player " << channel_id << ": " << message << std::endl;
+        LOGI("[GlobalChat] Player {}: {}", channel_id, message);
         
-        // 모든 맵에 브로드캐스트
+        // 모든 맵에 브로드캐스트 (cmd=0x1004: chat)
         auto active_maps = map_thread_manager_->get_active_map_ids();
         for (int map_id : active_maps) {
-            map_thread_manager_->send_packet_to_map(map_id, channel_id, 0x1001, 
+            map_thread_manager_->send_packet_to_map(map_id, channel_id, 0x1004,
                                                   message.c_str(), message.size());
         }
     });
@@ -91,23 +90,19 @@ void MainThreadManager::handle_global_chat(int channel_id, const std::string& me
 
 void MainThreadManager::handle_guild_system(int channel_id, const std::string& message) {
     add_global_task([channel_id, message]() {
-        // 길드 시스템 처리
-        std::cout << "[GuildSystem] Player " << channel_id << ": " << message << std::endl;
+        LOGD("[GuildSystem] Player {}: {}", channel_id, message);
     });
 }
 
 void MainThreadManager::handle_friend_system(int channel_id, const std::string& message) {
     add_global_task([channel_id, message]() {
-        // 친구 시스템 처리
-        std::cout << "[FriendSystem] Player " << channel_id << ": " << message << std::endl;
+        LOGD("[FriendSystem] Player {}: {}", channel_id, message);
     });
 }
 
 void MainThreadManager::handle_map_transfer(int channel_id, int from_map, int to_map) {
     add_task([this, channel_id, from_map, to_map]() {
-        // 맵 이동 처리
-        std::cout << "[MapTransfer] Player " << channel_id 
-                  << " moving from map " << from_map << " to map " << to_map << std::endl;
+        LOGI("[MapTransfer] Player {} from map {} to map {}", channel_id, from_map, to_map);
         
         if (map_thread_manager_) {
             map_thread_manager_->move_player_to_map(channel_id, from_map, to_map);
@@ -128,7 +123,7 @@ int MainThreadManager::get_map_thread_count() const {
 }
 
 void MainThreadManager::main_loop() {
-    std::cout << "[MainThreadManager] Main loop started" << std::endl;
+    LOGD("MainThreadManager loop started");
     
     auto last_update = std::chrono::steady_clock::now();
     
@@ -161,7 +156,7 @@ void MainThreadManager::main_loop() {
         std::this_thread::sleep_for(std::chrono::milliseconds(16));
     }
     
-    std::cout << "[MainThreadManager] Main loop ended" << std::endl;
+    LOGD("MainThreadManager loop ended");
 }
 
 void MainThreadManager::process_network_events() {

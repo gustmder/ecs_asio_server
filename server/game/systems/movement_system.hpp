@@ -1,7 +1,7 @@
 #pragma once
 
-#include "../system.hpp"
-#include "../entity.hpp"
+#include "../ecs/system.hpp"
+#include "../ecs/entity.hpp"
 #include "../components/transform.hpp"
 #include <vector>
 

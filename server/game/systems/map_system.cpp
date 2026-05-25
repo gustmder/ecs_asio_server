@@ -1,5 +1,5 @@
 #include "map_system.hpp"
-#include "../game_service.hpp"
+#include "../ecs/game_service.hpp"
 #include <iostream>
 #include <algorithm>
 #include <cmath>

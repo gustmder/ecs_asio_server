@@ -40,14 +40,42 @@ add_library(lemondory_network
 target_compile_definitions(lemondory_network PRIVATE ASIO_STANDALONE)
 target_link_libraries(lemondory_network PUBLIC lemondory_core)
 
+# ─── MySQL (선택) ────────────────────────────────────────────────────────────
+
+find_path(MYSQL_INCLUDE_DIR mysql/mysql.h
+    PATHS /usr/include /usr/local/include /opt/homebrew/include
+          /usr/local/mysql/include /usr/mysql/include)
+find_library(MYSQL_LIBRARY
+    NAMES mysqlclient mysqlclient_r
+    PATHS /usr/lib /usr/local/lib /opt/homebrew/lib
+          /usr/lib/x86_64-linux-gnu /usr/lib/aarch64-linux-gnu
+          /usr/local/mysql/lib)
+
+if(MYSQL_INCLUDE_DIR AND MYSQL_LIBRARY)
+  message(STATUS "MySQL found: ${MYSQL_LIBRARY}")
+  add_library(lemondory_db
+    server/db/db_connection.cpp
+    server/db/db_manager.cpp
+    server/db/dao/player_dao.cpp
+    server/db/failure_sink.cpp
+  )
+  target_include_directories(lemondory_db PUBLIC ${MYSQL_INCLUDE_DIR})
+  target_link_libraries(lemondory_db PUBLIC lemondory_core ${MYSQL_LIBRARY})
+  target_compile_definitions(lemondory_db PUBLIC LEMONDORY_HAVE_MYSQL)
+  set(LEMONDORY_DB_TARGET lemondory_db)
+else()
+  message(STATUS "MySQL not found — DB layer disabled (LEMONDORY_HAVE_MYSQL not set)")
+  set(LEMONDORY_DB_TARGET "")
+endif()
+
 # ─── 게임 서버 라이브러리 ────────────────────────────────────────────────────
 
 add_library(lemondory_game
-  server/game/entity.cpp
-  server/game/component.cpp
-  server/game/system.cpp
-  server/game/game_service.cpp
-  server/game/player.cpp
+  server/game/ecs/entity.cpp
+  server/game/ecs/component.cpp
+  server/game/ecs/system.cpp
+  server/game/ecs/game_service.cpp
+  server/game/objects/player.cpp
   server/game/game_server.cpp
   server/game/systems/movement_system.cpp
   server/game/systems/ai_system.cpp
@@ -56,8 +84,14 @@ add_library(lemondory_game
   server/game/threading/main_thread_manager.cpp
   server/game/threading/map_thread_manager.cpp
   server/game/threading/map_thread.cpp
+  server/game/handlers/player_handlers.cpp
+  server/game/handlers/guild_handlers.cpp
 )
 target_link_libraries(lemondory_game PUBLIC lemondory_network)
+if(LEMONDORY_DB_TARGET)
+  target_link_libraries(lemondory_game PUBLIC ${LEMONDORY_DB_TARGET})
+  target_compile_definitions(lemondory_game PUBLIC LEMONDORY_HAVE_MYSQL)
+endif()
 
 # ─── 실행 파일 ───────────────────────────────────────────────────────────────
 
@@ -67,6 +101,13 @@ target_link_libraries(game_server PRIVATE lemondory_game)
 add_executable(simple_client client/simple_client.cpp)
 target_compile_definitions(simple_client PRIVATE ASIO_STANDALONE)
 target_link_libraries(simple_client PRIVATE lemondory_network)
+
+add_executable(game_bot
+  client/main.cpp
+  client/game_bot.cpp
+)
+target_compile_definitions(game_bot PRIVATE ASIO_STANDALONE)
+target_link_libraries(game_bot PRIVATE lemondory_network)
 
 # ─── 테스트 ──────────────────────────────────────────────────────────────────
 

@@ -1,4 +1,4 @@
-#include "server/game/game_service.hpp"
+#include "server/game/ecs/game_service.hpp"
 #include "server/game/components/transform.hpp"
 #include "server/game/components/game_object.hpp"
 #include "server/game/components/health.hpp"

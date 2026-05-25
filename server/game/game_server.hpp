@@ -2,6 +2,7 @@
 #include <unordered_map>
 #include <mutex>
 #include <memory>
+#include <optional>
 #include <vector>
 
 #include "common/network/net_handler.hpp"
@@ -11,13 +12,19 @@
 #include "common/network/frame_codec.hpp"
 #include "common/network/message_dispatcher.hpp"
 #include "common/network/message_ids.hpp"
-#include "game_service.hpp"
+#include "ecs/game_service.hpp"
 #include "components/transform.hpp"
 #include "components/game_object.hpp"
 #include "components/health.hpp"
 #include "threading/main_thread_manager.hpp"
 #include "systems/combat_system.hpp"
 #include "server/core/server_config.hpp"
+
+#ifdef LEMONDORY_HAVE_MYSQL
+#include "server/db/db_manager.hpp"
+#include "server/db/dao/player_dao.hpp"
+#include "server/db/failure_sink.hpp"
+#endif
 
 namespace lemondory::game {
 
@@ -89,6 +96,12 @@ private:
     // 설정
     lemondory::core::ServerConfig config_;
 
+    // io_context executor (비동기 DB 콜백 복귀용)
+    asio::any_io_executor io_exec_;
+
+    // 주기적 DB 플러시 타이머
+    std::optional<asio::steady_timer> flush_timer_;
+
     // ECS 기반 게임 서비스 (config_.use_ecs로 제어)
 
     // 스레딩 시스템
@@ -97,6 +110,17 @@ private:
     // 플레이어 맵 매핑 (channel_id -> map_id)
     std::unordered_map<int, int> player_map_mapping_;
     std::mutex player_map_mutex_;
+
+#ifdef LEMONDORY_HAVE_MYSQL
+    std::unique_ptr<lemondory::db::DbManager>   db_manager_;
+    std::unique_ptr<lemondory::db::PlayerDao>   player_dao_;
+    std::unique_ptr<lemondory::db::FailureSink> failure_sink_;
+    std::unordered_map<int, std::int64_t>       channel_to_db_id_;
+    // 플레이어별 strand — 같은 플레이어의 DB 작업을 직렬화, 플레이어 간은 병렬
+    using db_strand_t = asio::strand<asio::thread_pool::executor_type>;
+    asio::thread_pool                           db_pool_{4};
+    std::unordered_map<int, db_strand_t>        db_strands_;
+#endif
 
     // 인메모리 길드 (DB 연동 전 임시)
     struct GuildData {
@@ -111,6 +135,14 @@ private:
     std::uint32_t next_guild_id_{1};
     std::mutex guild_mutex_;
     
+    // 핸들러 등록 (handlers/*.cpp에서 구현)
+    void bind_player_handlers();
+    void bind_guild_handlers();
+
+    // 주기적 DB 플러시 (위치·스탯 등 지연 허용 데이터)
+    void schedule_flush();
+    void flush_players();
+
     // 스레딩 시스템 헬퍼
     void initialize_threading_system();
     void shutdown_threading_system();

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../game_service.hpp"
+#include "../ecs/game_service.hpp"
 #include "map_thread_manager.hpp"
 #include <memory>
 #include <atomic>

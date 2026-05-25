@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../game_service.hpp"
+#include "../ecs/game_service.hpp"
 #include "map_thread.hpp"
 #include <unordered_map>
 #include <memory>

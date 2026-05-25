@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../component.hpp"
+#include "../ecs/component.hpp"
 #include <string>
 #include <vector>
 #include <unordered_set>
