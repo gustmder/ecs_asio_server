@@ -48,7 +48,14 @@ void game_server::handle_login(int channel_id, const char* data, std::size_t siz
 
         asio::post(strand_copy,
             [this, dao, io_exec, channel_id, player_name, use_ecs]() {
-                auto rec = dao->find_or_create(player_name);
+                std::optional<lemondory::db::PlayerRecord> rec;
+                try {
+                    rec = dao->find_or_create(player_name);
+                } catch (const std::exception& e) {
+                    LOGE("DB thread exception (login): channel={} what={}", channel_id, e.what());
+                } catch (...) {
+                    LOGE("DB thread unknown exception (login): channel={}", channel_id);
+                }
                 asio::post(io_exec,
                     [this, rec, channel_id, player_name, use_ecs]() {
                         // orphaned-entity 방지

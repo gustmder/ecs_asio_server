@@ -22,6 +22,14 @@ bool game_server::init(asio::io_context& io,
     }
 
 #ifdef LEMONDORY_HAVE_MYSQL
+    {
+        int n = 4;
+        auto it = config_.databases.find("game");
+        if (it != config_.databases.end() && it->second.enabled)
+            n = std::max(1, it->second.pool_size);
+        db_pool_.emplace(static_cast<std::size_t>(n));
+        LOGI("DB thread pool: {} thread(s)", n);
+    }
     failure_sink_ = std::make_unique<lemondory::db::FailureSink>();
     db_manager_ = std::make_unique<lemondory::db::DbManager>();
     if (db_manager_->init(config_.databases)) {
@@ -94,7 +102,7 @@ void game_server::stop() {
     shutdown_threading_system();
 
 #ifdef LEMONDORY_HAVE_MYSQL
-    db_pool_.join();  // pending DB 작업 완료 후 종료
+    if (db_pool_) db_pool_->join();  // pending DB 작업 완료 후 종료
     player_dao_.reset();
     if (db_manager_) { db_manager_->close(); db_manager_.reset(); }
 #endif
@@ -115,7 +123,7 @@ void game_server::on_accept(int channel_id, socket_channel_base* channel) {
     std::lock_guard<std::mutex> lk(mtx_);
     channels_[channel_id] = channel;
 #ifdef LEMONDORY_HAVE_MYSQL
-    db_strands_.emplace(channel_id, db_pool_.get_executor());
+    if (db_pool_) db_strands_.emplace(channel_id, db_pool_->get_executor());
 #endif
 
     if (main_thread_manager_) {
@@ -167,21 +175,36 @@ void game_server::on_close(int channel_id, const void* /*error*/, close_function
         auto* sink = failure_sink_.get();
         asio::post(strand_opt.value(), [dao, sink, db_id, x, y, z,
                                         map_id, level, exp, hp, player_name]() {
-            bool pos_ok   = dao->save_position(db_id, x, y, z, map_id);
-            bool stats_ok = dao->save_stats(db_id, level, exp, hp);
-            if (pos_ok && stats_ok) {
-                LOGI("Player id={} saved (map={} pos={:.1f},{:.1f},{:.1f})", db_id, map_id, x, y, z);
-            } else if (sink) {
-                lemondory::db::PlayerSaveSnapshot snap;
-                snap.player_id   = db_id;
-                snap.player_name = player_name;
-                snap.operation   = (!pos_ok ? "save_position" : "save_stats");
-                snap.pos_x = x; snap.pos_y = y; snap.pos_z = z;
-                snap.map_id      = map_id;
-                snap.level = level; snap.exp = exp; snap.hp = hp;
-                snap.attempts    = 3;
-                snap.error_msg   = "db_write_failed";
-                sink->record(snap);
+            try {
+                bool pos_ok   = dao->save_position(db_id, x, y, z, map_id);
+                bool stats_ok = dao->save_stats(db_id, level, exp, hp);
+                if (pos_ok && stats_ok) {
+                    LOGI("Player id={} saved (map={} pos={:.1f},{:.1f},{:.1f})", db_id, map_id, x, y, z);
+                } else if (sink) {
+                    lemondory::db::PlayerSaveSnapshot snap;
+                    snap.player_id   = db_id;
+                    snap.player_name = player_name;
+                    snap.operation   = (!pos_ok ? "save_position" : "save_stats");
+                    snap.pos_x = x; snap.pos_y = y; snap.pos_z = z;
+                    snap.map_id      = map_id;
+                    snap.level = level; snap.exp = exp; snap.hp = hp;
+                    snap.attempts    = 3;
+                    snap.error_msg   = "db_write_failed";
+                    sink->record(snap);
+                }
+            } catch (const std::exception& e) {
+                LOGE("DB thread exception (on_close): player_id={} what={}", db_id, e.what());
+                if (sink) {
+                    lemondory::db::PlayerSaveSnapshot snap;
+                    snap.player_id = db_id; snap.player_name = player_name;
+                    snap.operation = "on_close"; snap.error_msg = e.what();
+                    snap.pos_x = x; snap.pos_y = y; snap.pos_z = z;
+                    snap.map_id = map_id; snap.level = level; snap.exp = exp; snap.hp = hp;
+                    snap.attempts = 1;
+                    sink->record(snap);
+                }
+            } catch (...) {
+                LOGE("DB thread unknown exception (on_close): player_id={}", db_id);
             }
         });
     }
@@ -339,7 +362,13 @@ void game_server::flush_players() {
     auto* dao = player_dao_.get();
     for (auto& e : entries) {
         asio::post(e.strand, [dao, db_id=e.db_id, x=e.x, y=e.y, z=e.z, map_id=e.map_id]() {
-            dao->save_position(db_id, x, y, z, map_id);
+            try {
+                dao->save_position(db_id, x, y, z, map_id);
+            } catch (const std::exception& ex) {
+                LOGE("DB thread exception (flush): player_id={} what={}", db_id, ex.what());
+            } catch (...) {
+                LOGE("DB thread unknown exception (flush): player_id={}", db_id);
+            }
         });
     }
 

@@ -23,8 +23,17 @@ FailureSink::~FailureSink() {
     if (file_.is_open()) file_.close();
 }
 
+// 파일에 JSON Lines 한 줄을 쓰고, 실패하면 stderr로 fallback한다.
+static void write_to_stderr(const char* line) {
+    std::fputs(line, stderr);
+    std::fputc('\n', stderr);
+    std::fflush(stderr);
+}
+
 void FailureSink::record(const PlayerSaveSnapshot& s) {
-    if (!file_.is_open()) return;
+    if (!file_.is_open()) {
+        LOGE("FailureSink: 파일 없음 — stderr fallback: player_id={} op={}", s.player_id, s.operation);
+    }
 
     // UTC ISO 8601 타임스탬프
     auto now = std::chrono::system_clock::now();
@@ -60,8 +69,17 @@ void FailureSink::record(const PlayerSaveSnapshot& s) {
 
     {
         std::lock_guard<std::mutex> lk(mtx_);
-        file_ << line << '\n';
-        file_.flush();  // 서버 크래시 시에도 디스크에 반영되도록 즉시 flush
+        if (file_.is_open()) {
+            file_ << line << '\n';
+            file_.flush();  // 서버 크래시 시에도 디스크에 반영되도록 즉시 flush
+            if (file_.fail()) {
+                LOGE("FailureSink: 파일 쓰기 실패 — stderr fallback");
+                write_to_stderr(line);
+                file_.clear();
+            }
+        } else {
+            write_to_stderr(line);
+        }
     }
 
     LOGE("DB 저장 실패 — 스냅샷 기록: player_id={} op={} error={}",

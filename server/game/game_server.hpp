@@ -117,8 +117,9 @@ private:
     std::unique_ptr<lemondory::db::FailureSink> failure_sink_;
     std::unordered_map<int, std::int64_t>       channel_to_db_id_;
     // 플레이어별 strand — 같은 플레이어의 DB 작업을 직렬화, 플레이어 간은 병렬
+    // 스레드 수는 init()에서 DbConfig.pool_size 와 동기화
     using db_strand_t = asio::strand<asio::thread_pool::executor_type>;
-    asio::thread_pool                           db_pool_{4};
+    std::optional<asio::thread_pool>            db_pool_;
     std::unordered_map<int, db_strand_t>        db_strands_;
 #endif
 
