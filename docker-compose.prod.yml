@@ -1,0 +1,69 @@
+# 배포용 — game_server + MySQL + Redis 풀스택
+# 사용: cp .env.example .env  (값 수정 후)
+#       docker compose -f docker-compose.prod.yml up -d
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: lemondory_mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: lemondory_game
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./docker/mysql/init.sql:/docker-entrypoint-initdb.d/01_init.sql:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - lemondory_net
+
+  redis:
+    image: redis:7-alpine
+    container_name: lemondory_redis
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
+    restart: unless-stopped
+    networks:
+      - lemondory_net
+
+  game_server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: lemondory_game_server
+    ports:
+      - "${GAME_PORT:-12345}:12345"
+    environment:
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_NAME: lemondory_game
+      DB_USER: ${MYSQL_USER}
+      DB_PASSWORD: ${MYSQL_PASSWORD}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    volumes:
+      - ./config:/app/config:ro
+    restart: unless-stopped
+    networks:
+      - lemondory_net
+
+networks:
+  lemondory_net:
+    name: lemondory_net
+
+volumes:
+  mysql_data:
+  redis_data:
