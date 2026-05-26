@@ -48,7 +48,7 @@ void test_external_buffer() {
     // 데이터 추가
     buffer.append("External", 8);
     assert(buffer.offset() == 8);
-    assert(std::memcmp(external_data, "External", 8) == 0);
+    assert(memcmp(external_data, "External", 8) == 0);
     
     std::cout << "[TEST] External buffer test PASSED\n";
 }
