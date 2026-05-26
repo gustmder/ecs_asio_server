@@ -1,5 +1,7 @@
 // test_packet_buffer.cpp
 #include <cassert>
+#include <cstring>
+#include <stdexcept>
 #include <iostream>
 #include <vector>
 #include <string>

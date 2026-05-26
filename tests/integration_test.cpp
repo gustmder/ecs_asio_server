@@ -3,6 +3,8 @@
 #include <thread>
 #include <vector>
 #include <atomic>
+#include <mutex>
+#include <condition_variable>
 #include <string>
 
 // 간단한 통합 테스트
