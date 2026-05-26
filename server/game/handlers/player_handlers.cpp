@@ -33,12 +33,12 @@ void game_server::handle_login(int channel_id, const char* data, std::size_t siz
 
 #ifdef LEMONDORY_HAVE_MYSQL
     if (player_dao_) {
-        db_strand_t strand_copy;
+        std::optional<db_strand_t> strand_opt;
         {
             std::lock_guard<std::mutex> lk(mtx_);
             auto it = db_strands_.find(channel_id);
             if (it == db_strands_.end()) return;
-            strand_copy = it->second;
+            strand_opt = it->second;
         }
 
         auto* dao       = player_dao_.get();
@@ -46,7 +46,7 @@ void game_server::handle_login(int channel_id, const char* data, std::size_t siz
         std::string player_name = req.player_name;
         bool use_ecs    = config_.use_ecs;
 
-        asio::post(strand_copy,
+        asio::post(*strand_opt,
             [this, dao, io_exec, channel_id, player_name, use_ecs]() {
                 std::optional<lemondory::db::PlayerRecord> rec;
                 try {

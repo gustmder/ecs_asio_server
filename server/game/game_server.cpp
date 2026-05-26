@@ -328,7 +328,7 @@ void game_server::flush_players() {
         std::int64_t db_id;
         float x, y, z;
         int map_id;
-        db_strand_t strand;
+        std::optional<db_strand_t> strand;
     };
     std::vector<Entry> entries;
 
@@ -345,7 +345,7 @@ void game_server::flush_players() {
             Entry e;
             e.db_id  = db_id;
             e.x = 0.f; e.y = 0.f; e.z = 0.f; e.map_id = 1;
-            e.strand = sit->second;  // strand 복사
+            e.strand = sit->second;
 
             // ECS 읽기: io_context 스레드에서 실행되므로 락 없이 안전
             if (auto* pos    = game_service().get_component<Position>(entity))
@@ -361,7 +361,7 @@ void game_server::flush_players() {
 
     auto* dao = player_dao_.get();
     for (auto& e : entries) {
-        asio::post(e.strand, [dao, db_id=e.db_id, x=e.x, y=e.y, z=e.z, map_id=e.map_id]() {
+        asio::post(*e.strand, [dao, db_id=e.db_id, x=e.x, y=e.y, z=e.z, map_id=e.map_id]() {
             try {
                 dao->save_position(db_id, x, y, z, map_id);
             } catch (const std::exception& ex) {
