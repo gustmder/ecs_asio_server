@@ -85,3 +85,128 @@
 - **인벤토리** : 프로토콜 미정의
 - **전투 결과 검증** : 서버-권위 구조 미적용 (클라이언트 신뢰 방식)
 - **MapThread-ECS 동시성** : MapThread가 GameService::instance() 접근 — 잠재적 data race (Phase 3에서 설계 검토 필요)
+
+---
+
+## 설계 필요 항목 (구현 전 설계 확정 필요)
+
+### Redis 연동 (1순위)
+
+**목적**: 세션 토큰 검증, 플레이어 데이터 캐싱, 향후 크로스서버 pub/sub
+
+**설계 방향**:
+- `hiredis` 또는 `redis-plus-plus` 클라이언트 라이브러리 선택
+- `RedisClient` 싱글톤 or DI 방식으로 `game_server`에서 접근
+- 연결 풀: DB pool과 유사하게 `asio::thread_pool` + strand 패턴 적용
+
+**주요 use case**:
+```
+로그인:  GET session:{token} → player_id  (토큰 검증, TTL 자동 만료)
+캐싱:   GET player:{id}:data → JSON  (MySQL read 절감)
+        SET player:{id}:data EX 300   (5분 TTL write-through)
+```
+
+**볼륨 판단 기준**: 동접 1000명 이하이면 단일 Redis 인스턴스로 충분.
+클러스터가 필요한 규모가 되면 `redis-plus-plus`의 cluster 모드로 전환.
+
+---
+
+### 맵 AOI (Area of Interest) / Cell 분할 (설계 필요)
+
+**문제**: 현재 `MapThread::local_players_`는 flat set — 이동 브로드캐스트가 맵 전체 플레이어에게 전송됨.
+플레이어 수가 늘수록 패킷 양이 O(n²)으로 증가.
+
+**목표**: 플레이어는 자신의 인접 셀(8방향 + 자신 = 최대 9셀)의 정보만 수신.
+셀 경계 이동 시 구독 범위를 갱신하고 이전 셀 정보는 수신 중단.
+
+**설계 방향**:
+```
+MapThread 내부:
+  CELL_SIZE = 100 (유닛)
+  cells_: unordered_map<CellKey, Cell>
+  Cell { players: set<channel_id>, monsters: set<Entity> }
+
+  이동 처리 흐름:
+    1. 패킷 수신 → 새 좌표로 cell_key 계산
+    2. cell_key 변경 시: leave(old_cell), enter(new_cell)
+    3. 이동 브로드캐스트 대상 = get_neighbor_cells(new_cell) 의 플레이어들만
+```
+
+**결정 필요**:
+- CELL_SIZE 크기 (맵 크기, 시야 거리에 따라 결정)
+- 셀 전환 시 클라이언트에 enter/leave 알림 프로토콜 정의
+- 몬스터/NPC도 셀 소속으로 관리할지 여부
+
+---
+
+### 인벤토리 시스템 (설계 필요)
+
+**DB 스키마 방향**:
+```sql
+inventory (
+  id BIGINT PK,
+  player_id BIGINT NOT NULL,
+  slot_type TINYINT,   -- 0=가방, 1=장비
+  slot_index SMALLINT,
+  item_id INT NOT NULL,
+  quantity INT DEFAULT 1,
+  attributes JSON,     -- 내구도, 인챈트 등
+  UNIQUE KEY (player_id, slot_type, slot_index)
+)
+```
+
+**ECS 컴포넌트**:
+```cpp
+struct ItemSlot { int item_id = 0; int quantity = 0; };
+struct InventoryComponent {
+    std::array<ItemSlot, 30> bag;    // 일반 슬롯
+    std::array<ItemSlot, 8>  equip;  // 장비 슬롯
+};
+```
+
+**프로토콜 (미정의 상태, 설계 필요)**:
+- `2010` 인벤토리 전체 동기화 (로그인 시 1회)
+- `2011` 아이템 이동 (슬롯 간 swap)
+- `2012` 아이템 사용
+- `2013` 아이템 드롭
+- `2014` 장착/해제
+
+**동시성**: per-player strand로 DB 직렬화는 기존 구조 재사용 가능.
+트레이드(양 플레이어 동시 변경)는 deadlock 방지를 위해 `min(id_A, id_B)` 순서로 strand 획득 필요.
+
+**결정 필요**:
+- 아이템 정의 테이블(item_master) 구조 및 서버 캐싱 방식
+- 장비 스탯 적용 방식 (Health/Combat 컴포넌트에 반영 시점)
+- 트레이드 구현 여부 및 범위
+
+---
+
+### 스텁 상태 게임 로직 (설계 필요)
+
+아래 항목은 `MapThread` 내에 함수 껍데기만 있고 구현이 없음.
+구현 전 설계(데이터 구조, 프로토콜, ECS 연동 방식)를 확정해야 함.
+
+| 항목 | 현재 상태 | 설계 필요 내용 |
+|------|-----------|----------------|
+| `update_players()` | 빈 루프 | tick 단위 HP 재생, 버프 만료, 이동 검증 로직 |
+| AI (`update_object_ai`) | 빈 함수 | 몬스터 상태머신(idle/chase/attack/flee), 타겟 탐색 범위, 경로탐색 여부 |
+| 충돌 (`check_object_collisions`) | 빈 함수 | 충돌 판정 단위(AABB/원형), 서버 권위 여부, 맵 장애물 데이터 형식 |
+| 맵 이동 후처리 (`process_map_transfers`) | 빈 함수 | 구 맵 thread에서 플레이어 제거 → 새 맵 thread로 add_player 원자적 이전 프로토콜 |
+| 길드 DB 연동 | 인메모리 `GuildData` | guild 테이블 스키마, guild_member 관계, 알림 브로드캐스트 범위 |
+
+---
+
+### snapshot-replay CLI (낮은 우선순위)
+
+**목적**: DB 장애 중 `logs/failed_saves.jsonl`에 기록된 저장 실패 항목을
+DB 복구 후 재반영하는 독립 CLI 도구.
+
+**설계 방향**:
+```
+./replay_tool --file logs/failed_saves.jsonl [--dry-run] [--db-url ...]
+  - JSONL을 한 줄씩 파싱
+  - 각 레코드를 PlayerDao의 적절한 save_* 함수로 재실행
+  - 성공 시 처리된 레코드를 별도 파일로 이동 (idempotent 처리 필요)
+```
+
+**결정 필요**: 중복 적용 방지 (idempotent) 전략 — 타임스탬프 비교 or sequence 기반.
