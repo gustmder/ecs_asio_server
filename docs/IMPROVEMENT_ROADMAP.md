@@ -90,9 +90,26 @@
 
 ## 설계 필요 항목 (구현 전 설계 확정 필요)
 
-### Redis 연동 (1순위)
+### Redis 연동 (구현 완료 — 후속 작업 남음)
 
-**목적**: 세션 토큰 검증, 플레이어 데이터 캐싱, 향후 크로스서버 pub/sub
+**완료**: hiredis 1.2.0 third_party 포함, RedisClient 래퍼, 토큰 검증, 플레이어 데이터 캐싱(로그인/로그아웃), TTL config 연동
+
+**후속 작업 (TODO)**:
+
+| 항목 | 설명 | 연결 조건 |
+|------|------|-----------|
+| 캐시 히트 시 DB 조회 생략 | 로그인 시 `GET player:{id}:data` 히트이면 MySQL `find_or_create` 생략 | Auth 서버 연동 후 token → player_id 확정 시 구현 가능 |
+| 토큰 발급 API | 로그인 성공 시 `SET token:{uuid} player_id EX token_ttl_sec` 호출 위치 결정 | Auth 서버가 발급하거나, 임시로 게임 서버가 발급 |
+| 토큰 갱신 (sliding TTL) | 활성 세션의 토큰 TTL을 접속 중에 자동 연장 | 연결 유지 시 주기적 `EXPIRE token:{token} 7200` |
+| Redis pub/sub | 길드 알림, 크로스서버 채팅 등 서버 간 이벤트 전파 | 멀티 서버 인스턴스 구성 시 |
+
+**TTL 설정 근거** (`config/server_config.json`):
+- `token_ttl_sec: 7200` (2h) — 세션은 로그아웃 시 명시 삭제. TTL은 크래시/네트워크 단절로 고아가 된 토큰 자동 만료용
+- `player_ttl_sec: 1800` (30min) — 동일하게 로그아웃 시 명시 삭제. 300s(5분)는 캐시 히트율이 낮아 의미 없음
+
+---
+
+### Redis 설계 원안 (참고)
 
 **설계 방향**:
 - `hiredis` 또는 `redis-plus-plus` 클라이언트 라이브러리 선택

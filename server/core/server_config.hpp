@@ -19,11 +19,13 @@ struct DbConfig {
 };
 
 struct RedisConfig {
-    bool        enabled  = false;
-    std::string host     = "127.0.0.1";
-    uint16_t    port     = 6379;
-    std::string password = "";
-    int         db_index = 0;
+    bool        enabled         = false;
+    std::string host            = "127.0.0.1";
+    uint16_t    port            = 6379;
+    std::string password        = "";
+    int         db_index        = 0;
+    int         token_ttl_sec   = 7200;   // 세션 토큰 TTL (비정상 종료 안전망)
+    int         player_ttl_sec  = 1800;   // 플레이어 데이터 캐시 TTL
 };
 
 struct MapConfig {

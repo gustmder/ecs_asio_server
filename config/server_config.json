@@ -54,11 +54,13 @@
     }
   },
   "redis": {
-    "enabled":  false,
-    "host":     "127.0.0.1",
-    "port":     16379,            // dev 포트: docker-compose.dev.yml 참고
-    "password": "",
-    "db_index": 0
+    "enabled":        false,
+    "host":           "127.0.0.1",
+    "port":           16379,      // dev 포트: docker-compose.dev.yml 참고
+    "password":       "",
+    "db_index":       0,
+    "token_ttl_sec":  7200,       // 세션 토큰 TTL (2h) — 비정상 종료 안전망
+    "player_ttl_sec": 1800        // 플레이어 데이터 캐시 TTL (30min)
   },
   "maps": [
     { "id": 1, "name": "Forest",  "width": 1000.0, "height": 1000.0, "max_players": 100 },

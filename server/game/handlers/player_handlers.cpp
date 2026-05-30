@@ -68,8 +68,9 @@ void game_server::handle_login(int channel_id, const char* data, std::size_t siz
         bool use_ecs    = config_.use_ecs;
 
         auto* redis = redis_client_.get();
+        int player_ttl_sec = config_.redis.player_ttl_sec;
         asio::post(*strand_opt,
-            [this, dao, redis, io_exec, channel_id, player_name, use_ecs]() {
+            [this, dao, redis, io_exec, channel_id, player_name, use_ecs, player_ttl_sec]() {
                 std::optional<lemondory::db::PlayerRecord> rec;
                 try {
 #ifdef LEMONDORY_HAVE_REDIS
@@ -87,8 +88,8 @@ void game_server::handle_login(int channel_id, const char* data, std::size_t siz
                                            ",\"name\":\"" + player_name + "\"" +
                                            ",\"map_id\":" + std::to_string(rec->map_id) +
                                            ",\"hp\":" + std::to_string(rec->hp) + "}";
-                        redis->set_player_cache(rec->id, json);
-                        LOGD("Player cache set: id={}", rec->id);
+                        redis->set_player_cache(rec->id, json, player_ttl_sec);
+                        LOGD("Player cache set: id={} ttl={}s", rec->id, player_ttl_sec);
                     }
 #endif
                 } catch (const std::exception& e) {

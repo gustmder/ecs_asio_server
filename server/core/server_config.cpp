@@ -84,11 +84,13 @@ ServerConfig ServerConfig::load(const std::string& path) {
 
     // ── Redis ────────────────────────────────────────────────────
     if (auto r = j.find("redis"); r != j.end()) {
-        if (r->contains("enabled"))  cfg.redis.enabled  = (*r)["enabled"].get<bool>();
-        if (r->contains("host"))     cfg.redis.host     = (*r)["host"].get<std::string>();
-        if (r->contains("port"))     cfg.redis.port     = (*r)["port"].get<uint16_t>();
-        if (r->contains("password")) cfg.redis.password = (*r)["password"].get<std::string>();
-        if (r->contains("db_index")) cfg.redis.db_index = (*r)["db_index"].get<int>();
+        if (r->contains("enabled"))        cfg.redis.enabled        = (*r)["enabled"].get<bool>();
+        if (r->contains("host"))           cfg.redis.host           = (*r)["host"].get<std::string>();
+        if (r->contains("port"))           cfg.redis.port           = (*r)["port"].get<uint16_t>();
+        if (r->contains("password"))       cfg.redis.password       = (*r)["password"].get<std::string>();
+        if (r->contains("db_index"))       cfg.redis.db_index       = (*r)["db_index"].get<int>();
+        if (r->contains("token_ttl_sec"))  cfg.redis.token_ttl_sec  = (*r)["token_ttl_sec"].get<int>();
+        if (r->contains("player_ttl_sec")) cfg.redis.player_ttl_sec = (*r)["player_ttl_sec"].get<int>();
     }
 
     LOGI("Config loaded from {}.", path);
