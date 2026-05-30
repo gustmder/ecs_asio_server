@@ -29,7 +29,28 @@ void game_server::handle_login(int channel_id, const char* data, std::size_t siz
         return;
     }
     LOGI("Player login: {} (channel={})", req.player_name, channel_id);
-    // Phase 3: verify req.session_token via auth server before proceeding
+
+#ifdef LEMONDORY_HAVE_REDIS
+    // 세션 토큰 검증 — Redis에 등록된 토큰이 아니면 거부
+    if (redis_client_ && !req.session_token.empty()) {
+        auto pid = redis_client_->get_player_id_by_token(req.session_token);
+        if (!pid) {
+            LOGW("handle_login: invalid token (channel={} name={})", channel_id, req.player_name);
+            socket_channel_base* ch = nullptr;
+            { std::lock_guard<std::mutex> lk(mtx_);
+              auto it = channels_.find(channel_id);
+              if (it != channels_.end()) ch = it->second; }
+            if (ch) {
+                using namespace lemondory::shared;
+                login_res err{false, "invalid_token", 0, 0};
+                auto payload = err.serialize();
+                send_frame(ch, 1001, payload.data(), payload.size());
+            }
+            return;
+        }
+        LOGD("Token valid: channel={} player_id={}", channel_id, *pid);
+    }
+#endif
 
 #ifdef LEMONDORY_HAVE_MYSQL
     if (player_dao_) {
@@ -46,11 +67,30 @@ void game_server::handle_login(int channel_id, const char* data, std::size_t siz
         std::string player_name = req.player_name;
         bool use_ecs    = config_.use_ecs;
 
+        auto* redis = redis_client_.get();
         asio::post(*strand_opt,
-            [this, dao, io_exec, channel_id, player_name, use_ecs]() {
+            [this, dao, redis, io_exec, channel_id, player_name, use_ecs]() {
                 std::optional<lemondory::db::PlayerRecord> rec;
                 try {
+#ifdef LEMONDORY_HAVE_REDIS
+                    // 캐시 히트 시 DB 조회 생략 (future: deserialize cached JSON)
+                    if (redis) {
+                        auto cached = redis->get_player_cache(0); // placeholder: id 미확정
+                        (void)cached; // TODO: id 확정 후 캐시 우선 조회로 교체
+                    }
+#endif
                     rec = dao->find_or_create(player_name);
+#ifdef LEMONDORY_HAVE_REDIS
+                    // DB 조회 성공 시 Redis 캐싱
+                    if (redis && rec) {
+                        std::string json = "{\"id\":" + std::to_string(rec->id) +
+                                           ",\"name\":\"" + player_name + "\"" +
+                                           ",\"map_id\":" + std::to_string(rec->map_id) +
+                                           ",\"hp\":" + std::to_string(rec->hp) + "}";
+                        redis->set_player_cache(rec->id, json);
+                        LOGD("Player cache set: id={}", rec->id);
+                    }
+#endif
                 } catch (const std::exception& e) {
                     LOGE("DB thread exception (login): channel={} what={}", channel_id, e.what());
                 } catch (...) {

@@ -26,6 +26,10 @@
 #include "server/db/failure_sink.hpp"
 #endif
 
+#ifdef LEMONDORY_HAVE_REDIS
+#include "server/db/redis_client.hpp"
+#endif
+
 namespace lemondory::game {
 
 class game_server : public lemondory::network::net_handler {
@@ -121,6 +125,10 @@ private:
     using db_strand_t = asio::strand<asio::thread_pool::executor_type>;
     std::optional<asio::thread_pool>            db_pool_;
     std::unordered_map<int, db_strand_t>        db_strands_;
+#endif
+
+#ifdef LEMONDORY_HAVE_REDIS
+    std::unique_ptr<lemondory::db::RedisClient> redis_client_;
 #endif
 
     // 인메모리 길드 (DB 연동 전 임시)

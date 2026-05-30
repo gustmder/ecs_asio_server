@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(asio_server LANGUAGES CXX)
+project(asio_server LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -68,6 +68,35 @@ else()
   set(LEMONDORY_DB_TARGET "")
 endif()
 
+# ─── Redis / hiredis (선택) ──────────────────────────────────────────────────
+
+if(EXISTS "${CMAKE_SOURCE_DIR}/third_party/hiredis/hiredis.h")
+  add_library(hiredis_static STATIC
+    third_party/hiredis/alloc.c
+    third_party/hiredis/async.c
+    third_party/hiredis/dict.c
+    third_party/hiredis/hiredis.c
+    third_party/hiredis/net.c
+    third_party/hiredis/read.c
+    third_party/hiredis/sds.c
+    third_party/hiredis/sockcompat.c
+  )
+  target_include_directories(hiredis_static PUBLIC third_party/hiredis)
+  set_target_properties(hiredis_static PROPERTIES C_STANDARD 99)
+
+  add_library(lemondory_redis
+    server/db/redis_client.cpp
+  )
+  target_include_directories(lemondory_redis PUBLIC ${CMAKE_SOURCE_DIR})
+  target_link_libraries(lemondory_redis PUBLIC lemondory_core hiredis_static)
+  target_compile_definitions(lemondory_redis PUBLIC LEMONDORY_HAVE_REDIS)
+  set(LEMONDORY_REDIS_TARGET lemondory_redis)
+  message(STATUS "Redis (hiredis v1.2.0) found in third_party")
+else()
+  message(STATUS "Redis not found — Redis layer disabled (LEMONDORY_HAVE_REDIS not set)")
+  set(LEMONDORY_REDIS_TARGET "")
+endif()
+
 # ─── 게임 서버 라이브러리 ────────────────────────────────────────────────────
 
 add_library(lemondory_game
@@ -91,6 +120,10 @@ target_link_libraries(lemondory_game PUBLIC lemondory_network)
 if(LEMONDORY_DB_TARGET)
   target_link_libraries(lemondory_game PUBLIC ${LEMONDORY_DB_TARGET})
   target_compile_definitions(lemondory_game PUBLIC LEMONDORY_HAVE_MYSQL)
+endif()
+if(LEMONDORY_REDIS_TARGET)
+  target_link_libraries(lemondory_game PUBLIC ${LEMONDORY_REDIS_TARGET})
+  target_compile_definitions(lemondory_game PUBLIC LEMONDORY_HAVE_REDIS)
 endif()
 
 # ─── 실행 파일 ───────────────────────────────────────────────────────────────

@@ -5,6 +5,7 @@
 | asio (standalone) | 1.38.0 | 2026-05-17 | https://github.com/chriskohlhoff/asio |
 | spdlog | 1.17.0 | 2026-05-17 | https://github.com/gabime/spdlog |
 | nlohmann/json | 3.12.0 | 2026-05-17 | https://github.com/nlohmann/json |
+| hiredis | 1.2.0 | 2026-05-30 | https://github.com/redis/hiredis |
 
 ## 업데이트 방침
 

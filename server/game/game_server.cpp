@@ -41,6 +41,21 @@ bool game_server::init(asio::io_context& io,
     }
 #endif
 
+#ifdef LEMONDORY_HAVE_REDIS
+    if (config_.redis.enabled) {
+        lemondory::db::RedisClient::Config rcfg;
+        rcfg.host     = config_.redis.host;
+        rcfg.port     = config_.redis.port;
+        rcfg.password = config_.redis.password;
+        rcfg.db_index = config_.redis.db_index;
+        redis_client_ = std::make_unique<lemondory::db::RedisClient>(rcfg);
+        if (!redis_client_->connect()) {
+            LOGW("Redis connect failed — running without Redis cache");
+            redis_client_.reset();
+        }
+    }
+#endif
+
     io_exec_ = io.get_executor();
     flush_timer_.emplace(io);
 
@@ -105,6 +120,10 @@ void game_server::stop() {
     if (db_pool_) db_pool_->join();  // pending DB 작업 완료 후 종료
     player_dao_.reset();
     if (db_manager_) { db_manager_->close(); db_manager_.reset(); }
+#endif
+
+#ifdef LEMONDORY_HAVE_REDIS
+    if (redis_client_) redis_client_->disconnect();
 #endif
 
     std::lock_guard<std::mutex> lk(mtx_);
@@ -208,6 +227,11 @@ void game_server::on_close(int channel_id, const void* /*error*/, close_function
             }
         });
     }
+#endif
+
+#ifdef LEMONDORY_HAVE_REDIS
+    if (redis_client_ && db_id > 0)
+        redis_client_->del_player_cache(db_id);
 #endif
 
     if (main_thread_manager_) {
